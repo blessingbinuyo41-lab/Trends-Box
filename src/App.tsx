@@ -33,7 +33,16 @@ import Auth from './components/Auth';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+// Safe access to process.env for production builds
+const getApiKey = () => {
+  try {
+    return process.env.GEMINI_API_KEY || '';
+  } catch {
+    return '';
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const DAILY_LIMIT = 20;
 
