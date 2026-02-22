@@ -22,14 +22,12 @@ export default function AuthForm({ mode, onToggleMode }: AuthFormProps) {
     setError(null);
 
     try {
-      const { error } = mode === 'signin' 
+      const { error } = mode === 'signin'
         ? await signIn(email, password)
         : await signUp(email, password);
 
       if (error) {
         setError(error.message);
-      } else if (mode === 'signup') {
-        setError('Check your email for a confirmation link!');
       }
     } catch (err) {
       setError('An unexpected error occurred');
