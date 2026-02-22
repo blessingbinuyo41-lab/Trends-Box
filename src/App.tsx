@@ -27,22 +27,10 @@ import {
   LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
-
-// Safe access to process.env for production builds
-const getApiKey = () => {
-  try {
-    // Check both process.env (injected by Vite define) and import.meta.env
-    const key = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
-    return key.trim();
-  } catch {
-    return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-  }
-};
 
 const DAILY_LIMIT = 20;
 
@@ -175,66 +163,46 @@ export default function App() {
     }, 500);
 
     try {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        throw new Error('API_KEY_MISSING');
-      }
-
-      // Instantiate right before use to ensure latest key
-      const genAI = new GoogleGenAI({ apiKey });
-
       const prompt = manualInput 
         ? `Generate a ${genType} post about: ${manualInput}. Category: ${category}. Focus on Nigerian context if applicable. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`
         : `Find the latest news in ${category} from popular Nigerian sources and generate a ${genType} post. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`;
 
-      const response = await genAI.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              excerpt: { type: Type.STRING },
-              content: { type: Type.STRING },
-              sources: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    url: { type: Type.STRING }
-                  }
-                }
-              }
-            },
-            required: ["title", "excerpt", "content", "sources"]
-          }
-        }
+      // Call Netlify Function for Text Generation
+      const textResponse = await fetch('/.netlify/functions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'text',
+          params: { prompt }
+        })
       });
 
-      const data = JSON.parse(response.text || '{}');
+      if (!textResponse.ok) {
+        const errorData = await textResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate text content');
+      }
+
+      const data = await textResponse.json();
       
       // Generate Image
       let imageUrl = '';
       try {
-        const imgResponse = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: {
-            parts: [{ text: `A professional news image for: ${data.title}. Style: Realistic, high quality.` }]
-          },
-          config: {
-            imageConfig: { aspectRatio: "16:9" }
-          }
+        const imgResponse = await fetch('/.netlify/functions/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'image',
+            params: { prompt: `A professional news image for: ${data.title}. Style: Realistic, high quality.` }
+          })
         });
         
-        for (const part of imgResponse.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData) {
-            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-            break;
+        if (imgResponse.ok) {
+          const imgData = await imgResponse.json();
+          if (imgData.imageBase64) {
+            imageUrl = `data:${imgData.mimeType || 'image/png'};base64,${imgData.imageBase64}`;
           }
+        } else {
+          console.warn('Image generation failed', await imgResponse.text());
         }
       } catch (imgErr) {
         console.error('Image generation failed', imgErr);
@@ -321,12 +289,10 @@ export default function App() {
       setUsageCount(prev => prev + 1);
     } catch (err: any) {
       console.error('Generation failed:', err);
-      if (err.message === 'API_KEY_MISSING') {
-        alert('Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in your Netlify environment variables and you have redeployed.');
-      } else if (err.message?.includes('API_KEY_INVALID') || err.status === 403) {
-        alert('Invalid API Key. Please check your Gemini API key in Netlify settings.');
+      if (err.message?.includes('GEMINI_API_KEY')) {
+         alert('Server configuration error: Gemini API Key issue. Please check Netlify logs.');
       } else {
-        alert('Failed to generate content. This could be due to a connection issue or API limit. Please check the console for details.');
+         alert(`Failed to generate content: ${err.message || 'Unknown error'}`);
       }
     } finally {
       clearInterval(interval);
