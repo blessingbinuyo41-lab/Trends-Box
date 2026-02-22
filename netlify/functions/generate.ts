@@ -41,9 +41,11 @@ export const handler = async (event: any) => {
     
     if (prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")) {
       try {
-        const searchResult = await tvly.search(prompt, {
+        const currentDate = new Date().toISOString().split('T')[0];
+        // Refine search to find the single most trending/recent story with date context
+        const searchResult = await tvly.search(`${prompt} single most trending news story as of ${currentDate}`, {
           searchDepth: "advanced",
-          maxResults: 5,
+          maxResults: 3, 
           includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
         });
         
@@ -55,9 +57,19 @@ export const handler = async (event: any) => {
     }
 
     // 2. Generate Content using Llama 3 on Groq
-    const systemPrompt = `You are a professional Nigerian news editor. 
-    Generate a ${genType} post based on the provided context or prompt.
-    Return ONLY a JSON object with these fields: title, excerpt, content.`;
+    const systemPrompt = `You are an elite Nigerian investigative journalist and senior news editor. 
+    Your task is to transform raw news data into a "crafted" editorial piece.
+
+    CRITICAL REQUIREMENT:
+    - RECENCY: You MUST prioritize information from today or the last 24 hours. If the context contains multiple dates, focus on the most recent one.
+    - FOCUS: You MUST select ONE specific, cohesive news story from the provided context or prompt. 
+    - COHESION: The entire article (Title, Excerpt, and Content) must focus strictly on this SINGLE topic. Do not mix multiple unrelated news items.
+    
+    STYLE GUIDELINES:
+    - TITLE: Punchy, specific, and authoritative (e.g., "MTN Bids $6.2B for Full Control of IHS Towers").
+    - EXCERPT: A single, elegant, sophisticated sentence capturing the core significance.
+    - CONTENT: Professional, human-like delivery with sophisticated vocabulary.
+    - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content. No markdown outside the JSON.`;
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -79,7 +91,7 @@ export const handler = async (event: any) => {
         const imgModel = await genAI.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: {
-            parts: [{ text: `A professional, high-quality news header graphic for: "${data.title}". Style: Modern digital journalism, clean composition, realistic elements, 4k resolution.` }]
+            parts: [{ text: `A high-end editorial news graphic for a story titled: "${data.title}". The image should look like a professional magazine cover or a lead digital journalism header. Incorporate relevant Nigerian corporate or urban elements, clean typography-friendly composition, and a sophisticated color palette. Style: Photorealistic, cinematic lighting, 8k resolution, professional branding.` }]
           },
           config: { imageConfig: { aspectRatio: "16:9" } }
         });
