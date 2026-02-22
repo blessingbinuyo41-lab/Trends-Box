@@ -36,9 +36,10 @@ import { CATEGORIES, getReliabilityScore } from './constants';
 // Safe access to process.env for production builds
 const getApiKey = () => {
   try {
-    return process.env.GEMINI_API_KEY || '';
+    // Check both process.env (injected by Vite define) and import.meta.env
+    return process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
   } catch {
-    return '';
+    return import.meta.env.VITE_GEMINI_API_KEY || '';
   }
 };
 
@@ -175,6 +176,11 @@ export default function App() {
     }, 500);
 
     try {
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error('API_KEY_MISSING');
+      }
+
       const prompt = manualInput 
         ? `Generate a ${genType} post about: ${manualInput}. Category: ${category}. Focus on Nigerian context if applicable. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`
         : `Find the latest news in ${category} from popular Nigerian sources and generate a ${genType} post. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`;
@@ -311,9 +317,15 @@ export default function App() {
       // Update local state
       setHistory(prev => [uiRecord, ...prev]);
       setUsageCount(prev => prev + 1);
-    } catch (err) {
-      console.error('Generation failed', err);
-      alert('Failed to generate content. Please check your API key and connection.');
+    } catch (err: any) {
+      console.error('Generation failed:', err);
+      if (err.message === 'API_KEY_MISSING') {
+        alert('Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in your Netlify environment variables and you have redeployed.');
+      } else if (err.message?.includes('API_KEY_INVALID') || err.status === 403) {
+        alert('Invalid API Key. Please check your Gemini API key in Netlify settings.');
+      } else {
+        alert('Failed to generate content. This could be due to a connection issue or API limit. Please check the console for details.');
+      }
     } finally {
       clearInterval(interval);
       setLoading(false);
