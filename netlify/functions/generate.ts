@@ -41,15 +41,15 @@ export const handler = async (event: any) => {
     
     if (prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")) {
       try {
-        const currentDate = new Date().toISOString().split('T')[0];
-        // Refine search to find the single most trending/recent story with date context
-        const searchResult = await tvly.search(`${prompt} single most trending news story as of ${currentDate}`, {
+        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Refine search to be extremely aggressive about "today"
+        const searchResult = await tvly.search(`${prompt} breaking news published today ${currentDate} Nigeria`, {
           searchDepth: "advanced",
-          maxResults: 3, 
+          maxResults: 5, 
           includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
         });
         
-        context = searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
+        context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
         
         // Extract a cleaner platform name from the URL or title
         sources = searchResult.results.map((r, i) => {
@@ -85,7 +85,7 @@ export const handler = async (event: any) => {
     Your task is to transform raw news data into a "crafted" editorial piece.
 
     CRITICAL REQUIREMENT:
-    - RECENCY: You MUST prioritize information from today or the last 24 hours. If the context contains multiple dates, focus on the most recent one.
+    - RECENCY: You MUST ONLY use news from the provided "TODAY'S DATE". If all search results are older than 24 hours from that date, you MUST search for a different trending topic from today within the same category. DO NOT generate news from weeks or months ago.
     - FOCUS: You MUST select ONE specific, cohesive news story from the provided context or prompt. 
     - COHESION: The entire article (Title, Excerpt, and Content) must focus strictly on this SINGLE topic. Do not mix multiple unrelated news items.
     
