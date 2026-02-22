@@ -4,13 +4,34 @@
  */
 
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Search, History, Share2, FileText, Trash2, ExternalLink, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ChevronRight, ChevronDown, Star, MessageSquare, X, LayoutDashboard, Globe, Zap, ChartBar as BarChart3, RotateCcw, LogOut, User } from 'lucide-react';
+import { 
+  Search, 
+  History, 
+  Share2, 
+  FileText, 
+  Trash2, 
+  ExternalLink, 
+  CheckCircle2, 
+  AlertCircle,
+  Loader2,
+  ChevronRight,
+  ChevronDown,
+  Star,
+  MessageSquare,
+  X,
+  LayoutDashboard,
+  Globe,
+  Zap,
+  BarChart3,
+  RotateCcw,
+  LogOut
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
+import { supabase } from './lib/supabase';
+import Auth from './components/Auth';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
-import { useAuth } from './contexts/AuthContext';
-import { supabase } from './lib/supabase';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -44,12 +65,33 @@ export default function App() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
-  const { user, signOut } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    fetchHistory();
-    fetchUsage();
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchHistory();
+      fetchUsage();
+    } else {
+      setHistory([]);
+      setUsageCount(0);
+    }
+  }, [user]);
 
   const handleReset = () => {
     setIsResetting(true);
@@ -63,158 +105,47 @@ export default function App() {
   };
 
   const fetchUsage = async () => {
+    if (!user) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('usage')
         .select('count')
-        .eq('user_id', session.session.user.id)
+        .eq('user_id', user.id)
         .eq('date', today)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Failed to fetch usage', error);
-        return;
-      }
-
+      if (error) throw error;
       setUsageCount(data?.count || 0);
     } catch (err) {
-      console.error('Failed to fetch usage', err);
+      console.error('Supabase usage fetch failed', err);
+      const today = new Date().toISOString().split('T')[0];
+      const localUsage = JSON.parse(localStorage.getItem('trendsbox_usage') || '{}');
+      setUsageCount(localUsage[today] || 0);
     }
   };
 
   const fetchHistory = async () => {
+    if (!user) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-
       const { data, error } = await supabase
         .from('history')
         .select('*')
-        .eq('user_id', session.session.user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Failed to fetch history', error);
-        return;
-      }
-
-      const formattedHistory = data.map(item => ({
-        id: item.id,
-        title: item.title || '',
-        excerpt: item.excerpt || '',
-        content: item.content || '',
-        type: item.type as GenerationType,
-        category: item.category as Category,
-        imageUrl: item.image_url || '',
-        sources: item.sources || [],
-        timestamp: item.created_at
-      }));
-
-      setHistory(formattedHistory);
-    } catch (err) {
-      console.error('Failed to fetch history', err);
-    }
-  };
-
-  const saveToHistory = async (record: GenerationRecord) => {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-
-      const { error } = await supabase
-        .from('history')
-        .insert({
-          id: record.id,
-          user_id: session.session.user.id,
-          title: record.title,
-          excerpt: record.excerpt,
-          content: record.content,
-          type: record.type,
-          category: record.category,
-          image_url: record.imageUrl,
-          sources: record.sources
-        });
-
-      if (error) {
-        console.error('Failed to save history', error);
-        return;
-      }
-
-      // Update usage count
-      const today = new Date().toISOString().split('T')[0];
-      const { error: usageError } = await supabase
-        .from('usage')
-        .upsert({
-          user_id: session.session.user.id,
-          date: today,
-          count: usageCount + 1
-        }, {
-          onConflict: 'user_id,date'
-        });
-
-      if (usageError) {
-        console.error('Failed to update usage', usageError);
-      }
-    } catch (err) {
-      console.error('Failed to save to database', err);
-    }
-  };
-
-  const deleteHistory = async (id: string) => {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
-
-      const { error } = await supabase
-        .from('history')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', session.session.user.id);
-
-      if (error) {
-        console.error('Delete failed', error);
-        return;
-      }
-
-      setHistory(prev => prev.filter(item => item.id !== id));
-      if (selectedHistoryItem?.id === id) setSelectedHistoryItem(null);
-    } catch (err) {
-      console.error('Delete failed', err);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error('Sign out failed', err);
-    }
-  };
-
-  const oldFetchUsage = async () => {
-    try {
-      const res = await fetch('/api/usage');
-      const data = await res.json();
-      setUsageCount(data.count);
-    } catch (err) {
-      console.error('Failed to fetch usage', err);
-    }
-  };
-
-  const oldFetchHistory = async () => {
-    try {
-      const res = await fetch('/api/history');
-      const data = await res.json();
-      setHistory(data.map((item: any) => ({
+      if (error) throw error;
+      
+      setHistory((data || []).map((item: any) => ({
         ...item,
-        sources: JSON.parse(item.sources)
+        imageUrl: item.image_url,
+        timestamp: item.created_at || new Date().toISOString(),
+        sources: typeof item.sources === 'string' ? JSON.parse(item.sources) : item.sources
       })));
     } catch (err) {
-      console.error('Failed to fetch history', err);
+      console.error('Supabase history fetch failed', err);
+      const localHistory = JSON.parse(localStorage.getItem('trendsbox_history') || '[]');
+      setHistory(localHistory);
     }
   };
 
@@ -297,36 +228,121 @@ export default function App() {
         reliabilityScore: getReliabilityScore(s.name)
       }));
 
-      const newRecord: GenerationRecord = {
+      const newRecord: any = {
         id: Math.random().toString(36).substr(2, 9),
         title: data.title,
         excerpt: data.excerpt,
         content: data.content,
         type: genType,
         category: category,
-        imageUrl: imageUrl,
+        image_url: imageUrl,
         sources: enrichedSources,
-        timestamp: new Date().toISOString()
+        user_id: user.id
       };
 
       // Save to DB
-      await saveToHistory(newRecord);
+      try {
+        if (user) {
+          // Prepare record for Supabase (snake_case)
+          const dbRecord = {
+            id: newRecord.id,
+            user_id: user.id,
+            title: newRecord.title,
+            excerpt: newRecord.excerpt,
+            content: newRecord.content,
+            type: newRecord.type,
+            category: newRecord.category,
+            image_url: newRecord.image_url,
+            sources: newRecord.sources
+          };
 
-      setResult(newRecord);
-      setSelectedHistoryItem(newRecord);
+          const { error: historyError } = await supabase
+            .from('history')
+            .insert([dbRecord]);
+          
+          if (historyError) throw historyError;
+
+          const today = new Date().toISOString().split('T')[0];
+          
+          // Manual Upsert for Usage
+          const { data: usageData } = await supabase
+            .from('usage')
+            .select('count')
+            .eq('user_id', user.id)
+            .eq('date', today)
+            .maybeSingle();
+          
+          const currentCount = usageData?.count || 0;
+
+          const { error: usageUpsertError } = await supabase
+            .from('usage')
+            .upsert({ 
+              user_id: user.id, 
+              date: today, 
+              count: currentCount + 1 
+            }, { onConflict: 'user_id,date' });
+
+          if (usageUpsertError) throw usageUpsertError;
+        }
+      } catch (saveErr) {
+        console.error('Supabase save failed', saveErr);
+      }
+
+      // Map back to UI format if necessary
+      const uiRecord: GenerationRecord = {
+        ...newRecord,
+        imageUrl: newRecord.image_url,
+        timestamp: new Date().toISOString()
+      };
+
+      setResult(uiRecord);
+      setSelectedHistoryItem(uiRecord);
       setProgress(100);
       
-      // Update local state immediately for real-time feel
-      setHistory(prev => [newRecord, ...prev]);
+      // Update local state
+      setHistory(prev => [uiRecord, ...prev]);
       setUsageCount(prev => prev + 1);
     } catch (err) {
       console.error('Generation failed', err);
-      alert('Failed to generate content. Please try again.');
+      alert('Failed to generate content. Please check your API key and connection.');
     } finally {
       clearInterval(interval);
       setLoading(false);
     }
   };
+
+  const deleteHistory = async (id: string) => {
+    try {
+      if (user) {
+        const { error } = await supabase
+          .from('history')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        throw new Error('User not authenticated');
+      }
+    } catch (err) {
+      console.warn('Supabase delete failed, falling back to localStorage', err);
+      const localHistory = JSON.parse(localStorage.getItem('trendsbox_history') || '[]');
+      localStorage.setItem('trendsbox_history', JSON.stringify(localHistory.filter((item: any) => item.id !== id)));
+    }
+    setHistory(prev => prev.filter(item => item.id !== id));
+    if (selectedHistoryItem?.id === id) setSelectedHistoryItem(null);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
+        <Loader2 className="animate-spin text-black/20" size={40} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans flex flex-col lg:flex-row">
@@ -386,9 +402,18 @@ export default function App() {
           ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-            <div className="p-6 border-bottom border-black/5 hidden lg:flex items-center gap-3">
-              <Logo className="w-10 h-10" />
-              <h1 className="text-xl font-bold tracking-tight">Trends Box</h1>
+            <div className="p-6 border-b border-black/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Logo className="w-10 h-10" />
+                <h1 className="text-xl font-bold tracking-tight">Trends Box</h1>
+              </div>
+              <button 
+                onClick={() => supabase.auth.signOut()}
+                className="p-2.5 bg-[#F5F5F5] hover:bg-red-50 text-black/40 hover:text-red-500 rounded-xl transition-all"
+                title="Sign Out"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -508,20 +533,6 @@ export default function App() {
             </button>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-black/5 rounded-full text-xs">
-              <User size={14} className="text-black/40" />
-              <span className="font-medium text-black/60 truncate max-w-[120px]">
-                {user?.email}
-              </span>
-            </div>
-            <button 
-              onClick={handleSignOut}
-              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-black/40 hover:text-black flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
-              title="Sign Out"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </button>
             <button 
               onClick={handleReset}
               className="p-2 hover:bg-black/5 rounded-lg transition-colors text-black/40 hover:text-black flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
