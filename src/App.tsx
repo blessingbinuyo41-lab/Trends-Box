@@ -32,7 +32,7 @@ import { CATEGORIES, getReliabilityScore } from './constants';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 20;
 
 const Logo = memo(function Logo({ className = "w-8 h-8" }: { className?: string }) {
   // To use your own logo image later:
