@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { 
   Search, 
   History, 
@@ -34,7 +34,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 const DAILY_LIMIT = 50;
 
-function Logo({ className = "w-8 h-8" }: { className?: string }) {
+const Logo = memo(function Logo({ className = "w-8 h-8" }: { className?: string }) {
   // To use your own logo image later:
   // 1. Upload your logo to GitHub
   // 2. Get the "Raw" URL (e.g., https://raw.githubusercontent.com/user/repo/main/logo.png)
@@ -46,7 +46,7 @@ function Logo({ className = "w-8 h-8" }: { className?: string }) {
       <Zap size={className.includes('w-10') ? 24 : 18} />
     </div>
   );
-}
+});
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
@@ -651,7 +651,7 @@ export default function App() {
   );
 }
 
-function NewsDisplay({ item }: { item: GenerationRecord }) {
+const NewsDisplay = memo(function NewsDisplay({ item }: { item: GenerationRecord }) {
   return (
     <div className="bg-white rounded-2xl md:rounded-3xl border border-black/5 shadow-sm overflow-hidden flex flex-col">
       {item.imageUrl && (
@@ -661,6 +661,7 @@ function NewsDisplay({ item }: { item: GenerationRecord }) {
             alt={item.title} 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
+            loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6 md:p-8">
             <div className="space-y-2">
@@ -736,4 +737,4 @@ function NewsDisplay({ item }: { item: GenerationRecord }) {
       </div>
     </div>
   );
-}
+});
