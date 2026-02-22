@@ -53,7 +53,29 @@ async function startServer() {
             includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
           });
           context = searchResult.results.map(r => `Source: ${r.title}\nContent: ${r.content}`).join("\n\n");
-          sources = searchResult.results.map(r => ({ name: r.title, url: r.url }));
+          
+          // Extract a cleaner platform name from the URL or title
+          sources = searchResult.results.map(r => {
+            const url = new URL(r.url);
+            let platform = url.hostname.replace('www.', '').split('.')[0];
+            
+            const platformMap: Record<string, string> = {
+              'punchng': 'The Punch',
+              'vanguardngr': 'Vanguard',
+              'dailypost': 'Daily Post',
+              'premiumtimesng': 'Premium Times',
+              'guardian': 'The Guardian NG',
+              'independent': 'Independent',
+              'thenationonlineng': 'The Nation',
+              'thisdaylive': 'ThisDay'
+            };
+            
+            return { 
+              name: r.title, 
+              platform: platformMap[platform] || platform.charAt(0).toUpperCase() + platform.slice(1),
+              url: r.url 
+            };
+          });
         } catch (e) {
           console.error("Local search failed:", e);
         }

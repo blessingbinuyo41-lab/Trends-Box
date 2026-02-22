@@ -4,6 +4,7 @@ export type Category = 'Politics' | 'Sports' | 'Entertainment' | 'Technology' | 
 
 export interface NewsSource {
   name: string;
+  platform?: string;
   url: string;
   reliabilityScore: number;
 }

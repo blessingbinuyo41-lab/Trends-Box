@@ -832,14 +832,21 @@ const NewsDisplay = memo(function NewsDisplay({ item }: { item: GenerationRecord
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[#F5F5F5] rounded-lg hover:bg-black hover:text-white transition-all group border border-black/5"
+                  title={source.name}
+                  className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all group border border-black/5"
                 >
-                  <Globe size={12} className="text-black/40 group-hover:text-white/40" />
-                  <span className="text-[10px] font-bold truncate max-w-[100px]">{source.name}</span>
-                  <div className="w-1 h-1 rounded-full bg-black/10 group-hover:bg-white/20" />
-                  <span className="text-[10px] font-bold text-emerald-500 group-hover:text-emerald-400">
-                    {source.reliabilityScore}%
-                  </span>
+                  <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                    <Globe size={12} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-tighter leading-none">{source.platform || 'Verified Source'}</span>
+                    <span className="text-[8px] text-black/40 font-medium truncate max-w-[120px]">{source.name}</span>
+                  </div>
+                  <div className="ml-1 px-1.5 py-0.5 bg-emerald-50 rounded-md border border-emerald-100">
+                    <span className="text-[9px] font-black text-emerald-600">
+                      {source.reliabilityScore}%
+                    </span>
+                  </div>
                 </a>
               ))}
             </div>
