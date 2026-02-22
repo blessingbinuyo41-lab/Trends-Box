@@ -49,10 +49,10 @@ export const handler = async (event: any) => {
           includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
         });
         
-        context = searchResult.results.map(r => `Source: ${r.title}\nContent: ${r.content}`).join("\n\n");
+        context = searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
         
         // Extract a cleaner platform name from the URL or title
-        sources = searchResult.results.map(r => {
+        sources = searchResult.results.map((r, i) => {
           const url = new URL(r.url);
           let platform = url.hostname.replace('www.', '').split('.')[0];
           
@@ -69,6 +69,7 @@ export const handler = async (event: any) => {
           };
           
           return { 
+            id: i,
             name: r.title, 
             platform: platformMap[platform] || platform.charAt(0).toUpperCase() + platform.slice(1),
             url: r.url 
@@ -92,7 +93,8 @@ export const handler = async (event: any) => {
     - TITLE: Punchy, specific, and authoritative (e.g., "MTN Bids $6.2B for Full Control of IHS Towers").
     - EXCERPT: A single, elegant, sophisticated sentence capturing the core significance.
     - CONTENT: Professional, human-like delivery with sophisticated vocabulary.
-    - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content. No markdown outside the JSON.`;
+    - SOURCES: Identify which sources from the context (e.g., [Source 0], [Source 1]) are directly relevant to the specific story you generated.
+    - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content, and relevantSourceIds (an array of numbers corresponding to the [Source X] IDs). No markdown outside the JSON.`;
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -104,6 +106,16 @@ export const handler = async (event: any) => {
     });
 
     const data = JSON.parse(completion.choices[0].message.content || '{}');
+
+    // Filter sources to only include those the model found relevant
+    let filteredSources = sources;
+    if (data.relevantSourceIds && Array.isArray(data.relevantSourceIds)) {
+      filteredSources = sources.filter(s => data.relevantSourceIds.includes(s.id));
+    }
+    // Fallback: if model returned no sources but we have some, keep the first one as a safety net
+    if (filteredSources.length === 0 && sources.length > 0) {
+      filteredSources = [sources[0]];
+    }
 
     // 3. High-Quality Image Generation using Gemini
     let imageUrl = `https://picsum.photos/seed/${encodeURIComponent(data.title || 'news')}/1200/630`;
@@ -139,7 +151,7 @@ export const handler = async (event: any) => {
       },
       body: JSON.stringify({ 
         ...data, 
-        sources: sources.length > 0 ? sources : (data.sources || []),
+        sources: filteredSources,
         imageUrl 
       }),
     };
