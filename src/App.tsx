@@ -37,13 +37,12 @@ import { CATEGORIES, getReliabilityScore } from './constants';
 const getApiKey = () => {
   try {
     // Check both process.env (injected by Vite define) and import.meta.env
-    return process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
+    const key = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
+    return key.trim();
   } catch {
-    return import.meta.env.VITE_GEMINI_API_KEY || '';
+    return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
   }
 };
-
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const DAILY_LIMIT = 20;
 
@@ -181,11 +180,14 @@ export default function App() {
         throw new Error('API_KEY_MISSING');
       }
 
+      // Instantiate right before use to ensure latest key
+      const genAI = new GoogleGenAI({ apiKey });
+
       const prompt = manualInput 
         ? `Generate a ${genType} post about: ${manualInput}. Category: ${category}. Focus on Nigerian context if applicable. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`
         : `Find the latest news in ${category} from popular Nigerian sources and generate a ${genType} post. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`;
 
-      const response = await ai.models.generateContent({
+      const response = await genAI.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
@@ -218,7 +220,7 @@ export default function App() {
       // Generate Image
       let imageUrl = '';
       try {
-        const imgResponse = await ai.models.generateContent({
+        const imgResponse = await genAI.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: {
             parts: [{ text: `A professional news image for: ${data.title}. Style: Realistic, high quality.` }]
