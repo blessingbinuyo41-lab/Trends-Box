@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader as Loader2, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthForm from './AuthForm';
 

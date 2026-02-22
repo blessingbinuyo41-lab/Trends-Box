@@ -4,29 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { 
-  Search, 
-  History, 
-  Share2, 
-  FileText, 
-  Trash2, 
-  ExternalLink, 
-  CheckCircle2, 
-  AlertCircle,
-  Loader2,
-  ChevronRight,
-  ChevronDown,
-  Star,
-  MessageSquare,
-  X,
-  LayoutDashboard,
-  Globe,
-  Zap,
-  BarChart3,
-  RotateCcw,
-  LogOut,
-  User
-} from 'lucide-react';
+import { Search, History, Share2, FileText, Trash2, ExternalLink, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ChevronRight, ChevronDown, Star, MessageSquare, X, LayoutDashboard, Globe, Zap, ChartBar as BarChart3, RotateCcw, LogOut, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';

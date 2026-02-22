@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, Loader2, Zap, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader as Loader2, Zap, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AuthFormProps {
