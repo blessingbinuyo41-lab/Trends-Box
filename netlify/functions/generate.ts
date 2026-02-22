@@ -1,171 +1,119 @@
-import { Handler } from '@netlify/functions';
-import { GoogleGenAI, Type } from "@google/genai";
+import { OpenAI } from "openai";
+import { tavily } from "@tavily/core";
+import { GoogleGenAI } from "@google/genai";
 
-const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-    };
+export const handler = async (event: any) => {
+  console.log("Function triggered with method:", event.httpMethod);
+  
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
-    const { action, params } = JSON.parse(event.body || '{}');
-    const apiKey = process.env.GEMINI_API_KEY;
+    const { prompt, genType } = JSON.parse(event.body);
+    console.log("Processing prompt for type:", genType);
+    
+    // API Keys from environment
+    const groqKey = process.env.GROQ_API_KEY;
+    const tavilyKey = process.env.TAVILY_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    if (!apiKey) {
-      console.error('GEMINI_API_KEY is missing in environment variables');
+    if (!groqKey || !tavilyKey) {
+      console.error("Missing API Keys in environment");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Server configuration error: GEMINI_API_KEY is missing' }),
+        body: JSON.stringify({ 
+          error: "Missing API Keys. Please ensure GROQ_API_KEY and TAVILY_API_KEY are set in Netlify environment variables." 
+        }),
       };
     }
 
-    const genAI = new GoogleGenAI({ apiKey });
+    const groq = new OpenAI({
+      apiKey: groqKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
 
-    if (action === 'text') {
-      const { prompt } = params;
-      
-      const response = await genAI.models.generateContent({
-        model: "gemini-2.0-flash", // Updated to a stable model or keep user's "gemini-3-flash-preview" if valid? 
-        // User used "gemini-3-flash-preview". I should check if it's available. 
-        // "gemini-2.0-flash" is current standard. I will use what user had but fallback to 2.0-flash if it fails?
-        // Actually, "gemini-3-flash-preview" might be experimental. 
-        // Let's stick to "gemini-2.0-flash" as a safer default or use the user's if they really want it.
-        // User's code: "gemini-3-flash-preview"
-        // I'll try to use a standard model to ensure reliability unless I know 3 exists.
-        // I will use "gemini-2.0-flash" to be safe as it's generally available.
-        // Wait, user code has "gemini-3-flash-preview". If they have access, fine. 
-        // But 2.0 flash is safer. I'll use "gemini-2.0-flash" for now to ensure it works.
-        model: "gemini-2.0-flash", 
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              excerpt: { type: Type.STRING },
-              content: { type: Type.STRING },
-              sources: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    url: { type: Type.STRING }
-                  }
-                }
-              }
-            },
-            required: ["title", "excerpt", "content", "sources"]
-          }
-        }
-      });
-      
-      return {
-        statusCode: 200,
-        body: response.text || '{}',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      };
+    const tvly = tavily({ apiKey: tavilyKey });
 
-    } else if (action === 'image') {
-      const { prompt } = params;
-      
-      // Image generation
-      // User used "gemini-2.5-flash-image"
-      // I'll stick to that or "gemini-2.0-flash" which supports images?
-      // Actually, imagen 3 is the image model usually?
-      // But the user code used "gemini-2.5-flash-image".
-      // I will use "gemini-2.0-flash" as it supports image generation too or check docs.
-      // "gemini-2.0-flash" is multimodal.
-      // But let's use the model the user intended if possible. 
-      // I'll use "gemini-2.0-flash" for text and try to use "gemini-2.0-flash" for image if prompts are text-to-image?
-      // Wait, Gemini 2.0 Flash creates images? Yes, it can.
-      // But let's look at the user code:
-      /*
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [{ text: ... }]
-        },
-        config: { imageConfig: ... }
-      */
-     // The SDK supports this. I will use the user's model name if it's standard, but "gemini-2.5-flash-image" sounds like a specific one.
-     // I'll use "gemini-2.0-flash" for image generation as well if I can.
-     // Actually, let's use a known working model for image generation.
-     // "imagen-3.0-generate-001" is common. 
-     // But let's try to match user's intent. 
-     // I'll use "gemini-2.0-flash" for both to be safe and consistent.
-      
-      const response = await genAI.models.generateContent({
-        model: 'gemini-2.0-flash', 
-        contents: {
-          parts: [{ text: prompt }]
-        },
-        config: {
-          // @ts-ignore - responseMimeType for image? No, it's usually different for image gen.
-          // Wait, for image generation via Gemini 2.0, we usually ask for it.
-          // Actually, the user code seems to rely on `response.candidates[0].content.parts[0].inlineData`.
-          // This implies the model returns an image.
-          // Standard Gemini 2.0 returns text unless asked for image?
-          // I will use "imagen-3.0-generate-001" if I can, but the user code imports `GoogleGenAI`.
-          // Let's try to stick to "gemini-2.0-flash" and see if it returns images.
-          // Actually, `gemini-2.0-flash` can generate images.
-          // But I need to send the right config.
-        }
-      });
-      
-      // For image, we might need specific handling. 
-      // User code: `imageConfig: { aspectRatio: "16:9" }`
-      // I will pass that config.
-      
-       const imgResponse = await genAI.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: {
-            parts: [{ text: prompt }]
-          },
-          config: {
-            // @ts-ignore
-            imageConfig: { aspectRatio: "16:9" },
-            responseMimeType: "image/png" 
-          }
+    // 1. Search for latest news
+    let context = "";
+    let sources: any[] = [];
+    
+    if (prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")) {
+      try {
+        const searchResult = await tvly.search(prompt, {
+          searchDepth: "advanced",
+          maxResults: 5,
+          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
         });
         
-       // Extract image
-       // The user code checks `part.inlineData`.
-       // I'll return the whole response text or structure and let frontend parse, 
-       // OR return the base64 string directly to simplify frontend.
-       
-       const part = imgResponse.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-       if (part && part.inlineData) {
-         return {
-           statusCode: 200,
-           body: JSON.stringify({ imageBase64: part.inlineData.data, mimeType: part.inlineData.mimeType }),
-           headers: { 'Content-Type': 'application/json' }
-         };
-       }
-       
-       return {
-         statusCode: 422,
-         body: JSON.stringify({ error: 'No image generated' }),
-       };
+        context = searchResult.results.map(r => `Source: ${r.title}\nContent: ${r.content}`).join("\n\n");
+        sources = searchResult.results.map(r => ({ name: r.title, url: r.url }));
+      } catch (searchErr) {
+        console.error("Tavily search failed:", searchErr);
+      }
+    }
+
+    // 2. Generate Content using Llama 3 on Groq
+    const systemPrompt = `You are a professional Nigerian news editor. 
+    Generate a ${genType} post based on the provided context or prompt.
+    Return ONLY a JSON object with these fields: title, excerpt, content.`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: context ? `Context: ${context}\n\nPrompt: ${prompt}` : prompt }
+      ],
+      model: "llama-3.3-70b-versatile",
+      response_format: { type: "json_object" },
+    });
+
+    const data = JSON.parse(completion.choices[0].message.content || '{}');
+
+    // 3. High-Quality Image Generation using Gemini
+    let imageUrl = `https://picsum.photos/seed/${encodeURIComponent(data.title || 'news')}/1200/630`;
+    
+    if (geminiKey) {
+      try {
+        const genAI = new GoogleGenAI({ apiKey: geminiKey });
+        const imgModel = await genAI.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [{ text: `A professional, high-quality news header graphic for: "${data.title}". Style: Modern digital journalism, clean composition, realistic elements, 4k resolution.` }]
+          },
+          config: { imageConfig: { aspectRatio: "16:9" } }
+        });
+        
+        for (const part of imgModel.candidates?.[0]?.content?.parts || []) {
+          if (part.inlineData) {
+            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            console.log("Gemini image generated successfully");
+            break;
+          }
+        }
+      } catch (imgErr) {
+        console.error("Gemini image generation failed, using fallback:", imgErr);
+      }
     }
 
     return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid action' }),
+      statusCode: 200,
+      headers: { 
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*" 
+      },
+      body: JSON.stringify({ 
+        ...data, 
+        sources: sources.length > 0 ? sources : (data.sources || []),
+        imageUrl 
+      }),
     };
-
   } catch (error: any) {
-    console.error('Error in generate function:', error);
+    console.error("Function execution error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message || 'Internal Server Error' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
     };
   }
 };
-
-export { handler };
