@@ -23,12 +23,16 @@ import {
   Globe,
   Zap,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  LogOut,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
+import { useAuth } from './contexts/AuthContext';
+import { supabase } from './lib/supabase';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -62,6 +66,7 @@ export default function App() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     fetchHistory();
@@ -81,6 +86,139 @@ export default function App() {
 
   const fetchUsage = async () => {
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('usage')
+        .select('count')
+        .eq('user_id', session.session.user.id)
+        .eq('date', today)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Failed to fetch usage', error);
+        return;
+      }
+
+      setUsageCount(data?.count || 0);
+    } catch (err) {
+      console.error('Failed to fetch usage', err);
+    }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const { data, error } = await supabase
+        .from('history')
+        .select('*')
+        .eq('user_id', session.session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to fetch history', error);
+        return;
+      }
+
+      const formattedHistory = data.map(item => ({
+        id: item.id,
+        title: item.title || '',
+        excerpt: item.excerpt || '',
+        content: item.content || '',
+        type: item.type as GenerationType,
+        category: item.category as Category,
+        imageUrl: item.image_url || '',
+        sources: item.sources || [],
+        timestamp: item.created_at
+      }));
+
+      setHistory(formattedHistory);
+    } catch (err) {
+      console.error('Failed to fetch history', err);
+    }
+  };
+
+  const saveToHistory = async (record: GenerationRecord) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const { error } = await supabase
+        .from('history')
+        .insert({
+          id: record.id,
+          user_id: session.session.user.id,
+          title: record.title,
+          excerpt: record.excerpt,
+          content: record.content,
+          type: record.type,
+          category: record.category,
+          image_url: record.imageUrl,
+          sources: record.sources
+        });
+
+      if (error) {
+        console.error('Failed to save history', error);
+        return;
+      }
+
+      // Update usage count
+      const today = new Date().toISOString().split('T')[0];
+      const { error: usageError } = await supabase
+        .from('usage')
+        .upsert({
+          user_id: session.session.user.id,
+          date: today,
+          count: usageCount + 1
+        }, {
+          onConflict: 'user_id,date'
+        });
+
+      if (usageError) {
+        console.error('Failed to update usage', usageError);
+      }
+    } catch (err) {
+      console.error('Failed to save to database', err);
+    }
+  };
+
+  const deleteHistory = async (id: string) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const { error } = await supabase
+        .from('history')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', session.session.user.id);
+
+      if (error) {
+        console.error('Delete failed', error);
+        return;
+      }
+
+      setHistory(prev => prev.filter(item => item.id !== id));
+      if (selectedHistoryItem?.id === id) setSelectedHistoryItem(null);
+    } catch (err) {
+      console.error('Delete failed', err);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign out failed', err);
+    }
+  };
+
+  const oldFetchUsage = async () => {
+    try {
       const res = await fetch('/api/usage');
       const data = await res.json();
       setUsageCount(data.count);
@@ -89,7 +227,7 @@ export default function App() {
     }
   };
 
-  const fetchHistory = async () => {
+  const oldFetchHistory = async () => {
     try {
       const res = await fetch('/api/history');
       const data = await res.json();
@@ -194,11 +332,7 @@ export default function App() {
       };
 
       // Save to DB
-      await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRecord)
-      });
+      await saveToHistory(newRecord);
 
       setResult(newRecord);
       setSelectedHistoryItem(newRecord);
@@ -213,16 +347,6 @@ export default function App() {
     } finally {
       clearInterval(interval);
       setLoading(false);
-    }
-  };
-
-  const deleteHistory = async (id: string) => {
-    try {
-      await fetch(`/api/history/${id}`, { method: 'DELETE' });
-      setHistory(prev => prev.filter(item => item.id !== id));
-      if (selectedHistoryItem?.id === id) setSelectedHistoryItem(null);
-    } catch (err) {
-      console.error('Delete failed', err);
     }
   };
 
@@ -406,6 +530,20 @@ export default function App() {
             </button>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-black/5 rounded-full text-xs">
+              <User size={14} className="text-black/40" />
+              <span className="font-medium text-black/60 truncate max-w-[120px]">
+                {user?.email}
+              </span>
+            </div>
+            <button 
+              onClick={handleSignOut}
+              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-black/40 hover:text-black flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+              title="Sign Out"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
             <button 
               onClick={handleReset}
               className="p-2 hover:bg-black/5 rounded-lg transition-colors text-black/40 hover:text-black flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
