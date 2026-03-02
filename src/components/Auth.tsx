@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Zap, Mail, Lock, Loader as Loader2, ArrowRight } from 'lucide-react';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
