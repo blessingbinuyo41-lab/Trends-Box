@@ -27,7 +27,7 @@ const DAILY_LIMIT = 20;
 
 const Logo = memo(function Logo({ className = "w-8 h-8" }: { className?: string }) {
   return (
-    <div className={`${className} bg-white rounded-lg md:rounded-xl flex items-center justify-center shrink-0 overflow-hidden p-1`}>
+    <div className={`${className} bg-black rounded-lg md:rounded-xl flex items-center justify-center shrink-0 overflow-hidden p-1`}>
       <img 
         src="/Trends_Box_Icon_20260302_211907_0000.png" 
         alt="Trends Box Logo" 
@@ -46,6 +46,9 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<GenerationRecord | null>(null);
   const [history, setHistory] = useState<GenerationRecord[]>([]);
+  const [displayedHistory, setDisplayedHistory] = useState<GenerationRecord[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<GenerationRecord | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -54,6 +57,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  const ITEMS_PER_PAGE = 10;
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -75,10 +79,17 @@ export default function App() {
       fetchUsage();
     } else {
       setHistory([]);
+      setDisplayedHistory([]);
       setUsageCount(0);
     }
   }, [user]);
 
+  useEffect(() => {
+    // Update displayed history when history changes
+    const newDisplayed = history.slice(0, historyPage * ITEMS_PER_PAGE);
+    setDisplayedHistory(newDisplayed);
+    setHasMoreHistory(history.length > newDisplayed.length);
+  }, [history, historyPage]);
   const handleReset = () => {
     setIsResetting(true);
     setResult(null);
@@ -87,6 +98,7 @@ export default function App() {
     setManualInput('');
     setCategory('General');
     setGenType('blog');
+    setHistoryPage(1);
     setTimeout(() => setIsResetting(false), 600);
   };
 
@@ -128,13 +140,20 @@ export default function App() {
         timestamp: item.created_at || new Date().toISOString(),
         sources: typeof item.sources === 'string' ? JSON.parse(item.sources) : item.sources
       })));
+      setHistoryPage(1); // Reset pagination when fetching new history
     } catch (err) {
       console.error('Supabase history fetch failed', err);
       const localHistory = JSON.parse(localStorage.getItem('trendsbox_history') || '[]');
       setHistory(localHistory);
+      setHistoryPage(1);
     }
   };
 
+  const loadMoreHistory = () => {
+    if (hasMoreHistory) {
+      setHistoryPage(prev => prev + 1);
+    }
+  };
   const handleGenerate = async () => {
     if (usageCount >= DAILY_LIMIT) {
       alert('Daily generation limit reached. Please try again tomorrow.');
@@ -377,7 +396,8 @@ export default function App() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-black/40 uppercase tracking-wider">
                   <History size={14} />
@@ -452,18 +472,6 @@ export default function App() {
                     {usageCount}/{DAILY_LIMIT}
                   </span>
                 </div>
-                <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
-                  <motion.div 
-                    className={`h-full ${usageCount >= DAILY_LIMIT ? 'bg-red-500' : 'bg-black'}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min((usageCount / DAILY_LIMIT) * 100, 100)}%` }}
-                  />
-                </div>
-                <p className="text-[9px] text-black/30 leading-tight">
-                  {usageCount >= DAILY_LIMIT 
-                    ? "Limit reached. Upgrade for more generations." 
-                    : `${DAILY_LIMIT - usageCount} generations remaining for today.`}
-                </p>
               </div>
             </div>
       </aside>
@@ -674,7 +682,7 @@ export default function App() {
                   <div className="h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
                     <motion.div 
                       className="h-full bg-black"
-                      initial={{ width: 0 }}
+                    {displayedHistory.map((item, index) => (
                       animate={{ width: `${progress}%` }}
                     />
                   </div>
@@ -714,20 +722,43 @@ export default function App() {
                   <button 
                     onClick={() => setSelectedHistoryItem(null)}
                     className="flex items-center gap-2 text-sm font-medium text-black/40 hover:text-black transition-colors"
+                    
+                    {hasMoreHistory && (
+                      <button
+                        onClick={loadMoreHistory}
+                        className="w-full p-3 text-center text-sm font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-xl transition-all border border-dashed border-black/10 hover:border-black/20"
+                      >
+                        Load More ({history.length - displayedHistory.length} remaining)
+                      </button>
+                    )}
                   >
                     <ChevronRight className="rotate-180" size={16} />
-                    Back to Selection
+              </div>
                   </button>
-                  <NewsDisplay item={selectedHistoryItem} />
-                </div>
-              ) : (
-                <div className="text-center py-12 md:py-20 bg-white rounded-2xl md:rounded-3xl border border-black/5">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <LayoutDashboard size={24} className="text-black/20 md:hidden" />
+              {/* Fixed Usage Indicator */}
+              <div className="shrink-0 p-6 border-t border-black/5 bg-black/[0.02]">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/40">
+                      <BarChart3 size={12} />
+                      Daily Usage
+                    </div>
+                    <span className={`text-[10px] font-bold ${usageCount >= DAILY_LIMIT ? 'text-red-500' : 'text-black/60'}`}>
+                      {usageCount}/{DAILY_LIMIT}
+                    </span>
                     <LayoutDashboard size={32} className="text-black/20 hidden md:block" />
+                  <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      className={`h-full ${usageCount >= DAILY_LIMIT ? 'bg-red-500' : 'bg-black'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((usageCount / DAILY_LIMIT) * 100, 100)}%` }}
+                    />
                   </div>
-                  <h3 className="text-lg md:text-xl font-bold">Select a record from history</h3>
-                  <p className="text-sm text-black/40 mt-2 px-4">Your generated news updates will appear here.</p>
+                  <p className="text-[9px] text-black/30 leading-tight">
+                    {usageCount >= DAILY_LIMIT 
+                      ? "Limit reached. Upgrade for more generations." 
+                      : `${DAILY_LIMIT - usageCount} generations remaining for today.`}
+                  </p>
                 </div>
               )}
             </motion.div>

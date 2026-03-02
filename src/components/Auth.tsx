@@ -76,7 +76,7 @@ export default function Auth() {
       >
         <div className="p-8 md:p-12 space-y-8">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg p-2">
+            <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center shadow-lg p-2">
               <img 
                 src="/Trends_Box_Icon_20260302_211907_0000.png" 
                 alt="Trends Box Logo" 
