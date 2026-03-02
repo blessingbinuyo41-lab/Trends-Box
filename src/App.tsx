@@ -474,6 +474,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </div>
       </aside>
 
       {/* Mobile Overlay */}
@@ -682,7 +683,6 @@ export default function App() {
                   <div className="h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
                     <motion.div 
                       className="h-full bg-black"
-                    {displayedHistory.map((item, index) => (
                       animate={{ width: `${progress}%` }}
                     />
                   </div>
@@ -722,43 +722,91 @@ export default function App() {
                   <button 
                     onClick={() => setSelectedHistoryItem(null)}
                     className="flex items-center gap-2 text-sm font-medium text-black/40 hover:text-black transition-colors"
-                    
-                    {hasMoreHistory && (
-                      <button
-                        onClick={loadMoreHistory}
-                        className="w-full p-3 text-center text-sm font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-xl transition-all border border-dashed border-black/10 hover:border-black/20"
-                      >
-                        Load More ({history.length - displayedHistory.length} remaining)
-                      </button>
-                    )}
                   >
                     <ChevronRight className="rotate-180" size={16} />
-              </div>
+                    Back to History
                   </button>
-              {/* Fixed Usage Indicator */}
-              <div className="shrink-0 p-6 border-t border-black/5 bg-black/[0.02]">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/40">
-                      <BarChart3 size={12} />
-                      Daily Usage
-                    </div>
-                    <span className={`text-[10px] font-bold ${usageCount >= DAILY_LIMIT ? 'text-red-500' : 'text-black/60'}`}>
-                      {usageCount}/{DAILY_LIMIT}
-                    </span>
-                    <LayoutDashboard size={32} className="text-black/20 hidden md:block" />
-                  <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      className={`h-full ${usageCount >= DAILY_LIMIT ? 'bg-red-500' : 'bg-black'}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((usageCount / DAILY_LIMIT) * 100, 100)}%` }}
-                    />
+                  <NewsDisplay item={selectedHistoryItem} />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">Generation History</h2>
+                    <p className="text-sm md:text-base text-black/50">View and manage your previous generations.</p>
                   </div>
-                  <p className="text-[9px] text-black/30 leading-tight">
-                    {usageCount >= DAILY_LIMIT 
-                      ? "Limit reached. Upgrade for more generations." 
-                      : `${DAILY_LIMIT - usageCount} generations remaining for today.`}
-                  </p>
+
+                  {displayedHistory.length === 0 ? (
+                    <div className="text-center py-16 px-4">
+                      <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <History size={24} className="text-black/20" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">No generations yet</h3>
+                      <p className="text-black/40 mb-6">Start generating content to see your history here.</p>
+                      <button 
+                        onClick={() => setActiveTab('generate')}
+                        className="px-6 py-3 bg-black text-white rounded-xl font-semibold hover:bg-black/90 transition-all"
+                      >
+                        Generate Content
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {displayedHistory.map((item, index) => (
+                        <motion.div 
+                          key={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => setSelectedHistoryItem(item)}
+                          className="group bg-white p-6 rounded-2xl border border-black/5 hover:border-black/20 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                        >
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="flex-1 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded">
+                                  {item.category}
+                                </span>
+                                <span className="px-2 py-0.5 bg-black/5 text-black/60 text-[10px] font-bold uppercase tracking-widest rounded">
+                                  {item.type === 'social' ? 'Social' : 'Blog'}
+                                </span>
+                                <span className="text-[10px] text-black/40 font-medium">
+                                  {new Date(item.timestamp).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <h3 className="text-lg font-semibold line-clamp-2 leading-snug group-hover:text-black/80 transition-colors">
+                                {item.title}
+                              </h3>
+                              <p className="text-sm text-black/60 line-clamp-2 leading-relaxed">
+                                {item.excerpt}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteHistory(item.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                                title="Delete generation"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <ChevronRight size={16} className="text-black/20 group-hover:text-black/40 transition-colors" />
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+
+                      {hasMoreHistory && (
+                        <button
+                          onClick={loadMoreHistory}
+                          className="w-full p-3 text-center text-sm font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-xl transition-all border border-dashed border-black/10 hover:border-black/20"
+                        >
+                          Load More ({history.length - displayedHistory.length} remaining)
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
