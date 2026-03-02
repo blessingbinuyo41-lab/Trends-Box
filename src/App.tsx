@@ -682,8 +682,236 @@ export default function App() {
                   </div>
                   <div className="h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
                     <motion.div 
-                      className="h-full bg-black"
                       animate={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] md:text-xs text-center text-black/40 animate-pulse">
+                    Scanning Nigerian news sources, verifying reliability, and crafting your summary...
+                  </p>
+                </div>
+              )}
+
+              {result && !loading && (
+                <motion.div 
+                  key="result-card"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
+                  transition={{ duration: 0.4 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl md:rounded-2xl text-emerald-700">
+                    <CheckCircle2 size={20} />
+                    <span className="text-xs md:text-sm font-medium">Content successfully generated and saved to history!</span>
+                  </div>
+                  <NewsDisplay item={result} />
+                </motion.div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="history-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 md:space-y-8"
+            >
+              {selectedHistoryItem ? (
+                <div className="space-y-6">
+                  <button 
+                    onClick={() => setSelectedHistoryItem(null)}
+                    className="flex items-center gap-2 text-sm font-medium text-black/40 hover:text-black transition-colors"
+                  >
+                    <ChevronRight className="rotate-180" size={16} />
+                    Back to History
+                  </button>
+                  <NewsDisplay item={selectedHistoryItem} />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">Generation History</h2>
+                    <p className="text-sm md:text-base text-black/50">View and manage your previous generations.</p>
+                  </div>
+
+                  {displayedHistory.length === 0 ? (
+                    <div className="text-center py-16 px-4">
+                      <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <History size={24} className="text-black/20" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">No generations yet</h3>
+                      <p className="text-black/40 mb-6">Start generating content to see your history here.</p>
+                      <button 
+                        onClick={() => setActiveTab('generate')}
+                        className="px-6 py-3 bg-black text-white rounded-xl font-semibold hover:bg-black/90 transition-all"
+                      >
+                        Generate Content
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {displayedHistory.map((item, index) => (
+                        <motion.div 
+                          key={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => setSelectedHistoryItem(item)}
+                          className="group bg-white p-6 rounded-2xl border border-black/5 hover:border-black/20 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                        >
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="flex-1 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded">
+                                  {item.category}
+                                </span>
+                                <span className="px-2 py-0.5 bg-black/5 text-black/60 text-[10px] font-bold uppercase tracking-widest rounded">
+                                  {item.type === 'social' ? 'Social' : 'Blog'}
+                                </span>
+                                <span className="text-[10px] text-black/40 font-medium">
+                                  {new Date(item.timestamp).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <h3 className="text-lg font-semibold line-clamp-2 leading-snug group-hover:text-black/80 transition-colors">
+                                {item.title}
+                              </h3>
+                              <p className="text-sm text-black/60 line-clamp-2 leading-relaxed">
+                                {item.excerpt}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteHistory(item.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                                title="Delete generation"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                              <ChevronRight size={16} className="text-black/20 group-hover:text-black/40 transition-colors" />
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+
+                      {hasMoreHistory && (
+                        <button
+                          onClick={loadMoreHistory}
+                          className="w-full p-3 text-center text-sm font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-xl transition-all border border-dashed border-black/10 hover:border-black/20"
+                        >
+                          Load More ({history.length - displayedHistory.length} remaining)
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+          </AnimatePresence>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+const NewsDisplay = memo(function NewsDisplay({ item }: { item: GenerationRecord }) {
+  return (
+    <div className="bg-white rounded-2xl md:rounded-3xl border border-black/5 shadow-sm overflow-hidden flex flex-col">
+      {item.imageUrl && (
+        <div className="aspect-[21/9] w-full overflow-hidden bg-black/5 relative">
+          <img 
+            src={item.imageUrl} 
+            alt={item.title} 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6 md:p-8">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-white text-black text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
+                  {item.category}
+                </span>
+                <span className="px-2 py-0.5 bg-black/40 backdrop-blur-md text-white text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
+                  {item.type === 'social' ? 'Social' : 'Blog'}
+                </span>
+              </div>
+              <h1 className="text-xl md:text-3xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">
+                {item.title}
+              </h1>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="p-6 md:p-10 space-y-8">
+        {!item.imageUrl && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="px-2 py-0.5 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
+                {item.category}
+              </span>
+              <span className="text-[8px] md:text-xs font-bold text-black/40 uppercase tracking-widest">
+                {item.type === 'social' ? 'Social Content' : 'Blog Post'}
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight">
+              {item.title}
+            </h1>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          <p className="text-lg md:text-xl text-black/60 italic font-serif leading-relaxed border-l-4 border-black/10 pl-6">
+            {item.excerpt}
+          </p>
+
+          <div className="prose prose-sm md:prose-base max-w-none text-black/80 leading-relaxed space-y-4 whitespace-pre-wrap font-medium">
+            {item.content}
+          </div>
+        </div>
+
+        <div className="pt-8 border-t border-black/5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-black/40">Reference Sources</h3>
+              <p className="text-[10px] text-black/30">Verified across {item.sources.length} trusted Nigerian news outlets</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {item.sources.map((source, idx) => (
+                <a 
+                  key={idx}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={source.name}
+                  className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all group border border-black/5"
+                >
+                  <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                    <Globe size={12} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-tighter leading-none">{source.platform || 'Verified Source'}</span>
+                    <span className="text-[8px] text-black/40 font-medium truncate max-w-[120px]">{source.name}</span>
+                  </div>
+                  <div className="ml-1 px-1.5 py-0.5 bg-emerald-50 rounded-md border border-emerald-100">
+                    <span className="text-[9px] font-black text-emerald-600">
+                      {source.reliabilityScore}%
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
                     />
                   </div>
                   <p className="text-[10px] md:text-xs text-center text-black/40 animate-pulse">
