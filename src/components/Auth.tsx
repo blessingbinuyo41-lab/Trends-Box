@@ -76,8 +76,12 @@ export default function Auth() {
       >
         <div className="p-8 md:p-12 space-y-8">
           <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center text-white shadow-lg">
-              <Zap size={32} />
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg p-2">
+              <img 
+                src="/Trends_Box_Icon_20260302_211907_0000.png" 
+                alt="Trends Box Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">Trends Box</h1>

@@ -47,15 +47,13 @@ const getApiKey = () => {
 const DAILY_LIMIT = 20;
 
 const Logo = memo(function Logo({ className = "w-8 h-8" }: { className?: string }) {
-  // To use your own logo image later:
-  // 1. Upload your logo to GitHub
-  // 2. Get the "Raw" URL (e.g., https://raw.githubusercontent.com/user/repo/main/logo.png)
-  // 3. Replace the <Zap /> line below with:
-  //    <img src="YOUR_GITHUB_RAW_URL" alt="Logo" className="w-full h-full object-contain" />
-  
   return (
-    <div className={`${className} bg-black rounded-lg md:rounded-xl flex items-center justify-center text-white shrink-0 overflow-hidden`}>
-      <Zap size={className.includes('w-10') ? 24 : 18} />
+    <div className={`${className} bg-white rounded-lg md:rounded-xl flex items-center justify-center shrink-0 overflow-hidden p-1`}>
+      <img 
+        src="/Trends_Box_Icon_20260302_211907_0000.png" 
+        alt="Trends Box Logo" 
+        className="w-full h-full object-contain"
+      />
     </div>
   );
 });
