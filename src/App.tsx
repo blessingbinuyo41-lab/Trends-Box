@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
+import ConfirmationModal from './components/ConfirmationModal';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
 
@@ -56,6 +57,8 @@ export default function App() {
   const [isResetting, setIsResetting] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -100,6 +103,22 @@ export default function App() {
     setGenType('blog');
     setHistoryPage(1);
     setTimeout(() => setIsResetting(false), 600);
+  };
+
+  const openDeleteModal = (id: string) => {
+    setItemToDeleteId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setItemToDeleteId(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (itemToDeleteId) {
+      deleteHistory(itemToDeleteId);
+    }
   };
 
   const fetchUsage = async () => {
@@ -444,11 +463,9 @@ export default function App() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm('Delete this generation? This cannot be undone.')) {
-                              deleteHistory(item.id);
-                            }
+                            openDeleteModal(item.id);
                           }}
-                          className="opacity-40 hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 hover:bg-red-500 hover:text-white rounded-lg transition-all shrink-0"
+                          className="p-1.5 text-black/40 hover:text-red-500 rounded-lg transition-all shrink-0"
                           title="Delete generation"
                         >
                           <Trash2 size={12} />
@@ -789,11 +806,9 @@ export default function App() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (window.confirm('Delete this generation? This cannot be undone.')) {
-                                    deleteHistory(item.id);
-                                  }
+                                  openDeleteModal(item.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                 title="Delete generation"
                               >
                                 <Trash2 size={16} />
@@ -821,6 +836,13 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
