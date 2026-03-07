@@ -514,7 +514,7 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto relative">
+      <main className="flex-1 flex flex-col min-h-0 lg:min-h-screen overflow-y-auto relative">
         <header className="hidden lg:flex h-16 bg-white/95 backdrop-blur-md border-b border-white/20 items-center justify-between px-8 sticky top-0 z-10">
           <div className="flex gap-8">
             <button 
@@ -557,7 +557,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="px-4 py-6 md:p-8 max-w-4xl mx-auto w-full flex-1 relative">
+        <div className="px-4 py-6 md:p-8 max-w-4xl mx-auto w-full flex-1 relative min-h-0">
           <AnimatePresence mode="wait">
             {activeTab === 'generate' ? (
               <motion.div 
