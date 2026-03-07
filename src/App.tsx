@@ -808,7 +808,7 @@ export default function App() {
                                   e.stopPropagation();
                                   openDeleteModal(item.id);
                                 }}
-                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                className="p-2 text-black/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                                 title="Delete generation"
                               >
                                 <Trash2 size={16} />
