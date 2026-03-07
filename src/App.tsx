@@ -448,7 +448,7 @@ export default function App() {
                               deleteHistory(item.id);
                             }
                           }}
-                          className="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto p-1.5 hover:bg-red-500 hover:text-white rounded-lg transition-all shrink-0"
+                          className="opacity-40 hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 hover:bg-red-500 hover:text-white rounded-lg transition-all shrink-0"
                           title="Delete generation"
                         >
                           <Trash2 size={12} />
@@ -793,7 +793,7 @@ export default function App() {
                                     deleteHistory(item.id);
                                   }
                                 }}
-                                className="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto p-2 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-all"
+                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
                                 title="Delete generation"
                               >
                                 <Trash2 size={16} />
