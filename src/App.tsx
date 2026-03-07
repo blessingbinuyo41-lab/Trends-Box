@@ -576,7 +576,7 @@ export default function App() {
                     }}
                   >
                     {/* Enhanced gradient overlay for better text readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/20" />
                     <div className="relative z-10 space-y-4 max-w-lg">
                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-white/10">
                         <Zap size={12} className="text-yellow-400" />
