@@ -568,7 +568,15 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="bg-black text-white p-8 md:p-12 rounded-[2rem] overflow-hidden relative shadow-xl"
+                    style={{
+                      backgroundImage: 'url("/trends_box_dashboard_card copy.png")',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat'
+                    }}
                   >
+                    {/* Dark overlay for better text readability */}
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
                     <div className="relative z-10 space-y-4 max-w-lg">
                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-white/10">
                         <Zap size={12} className="text-yellow-400" />
@@ -581,8 +589,6 @@ export default function App() {
                         Select a category and generation type below to start crafting professional news updates from trusted sources.
                       </p>
                     </div>
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-2xl -ml-16 -mb-16" />
                   </motion.div>
                 )}
 
