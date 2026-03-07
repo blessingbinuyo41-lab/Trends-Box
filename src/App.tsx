@@ -175,11 +175,14 @@ export default function App() {
         ? `Generate a ${genType} post about: ${manualInput}. Category: ${category}. Focus on Nigerian context if applicable. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`
         : `Find the latest news in ${category} from popular Nigerian sources and generate a ${genType} post. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`;
 
+      // Collect recent titles to avoid duplicates
+      const recentTitles = history.slice(0, 20).map(h => h.title);
+
       // Call Netlify Function instead of direct API
       const response = await fetch('/.netlify/functions/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, genType })
+        body: JSON.stringify({ prompt, genType, recentTitles })
       });
 
       const responseText = await response.text();
@@ -438,12 +441,14 @@ export default function App() {
                         <h3 className="text-sm font-medium line-clamp-2 leading-snug flex-1">
                           {item.title}
                         </h3>
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteHistory(item.id);
+                            if (window.confirm('Delete this generation? This cannot be undone.')) {
+                              deleteHistory(item.id);
+                            }
                           }}
-                          className="opacity-40 hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 hover:bg-red-500 hover:text-white rounded-lg transition-all shrink-0"
+                          className="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto p-1.5 hover:bg-red-500 hover:text-white rounded-lg transition-all shrink-0"
                           title="Delete generation"
                         >
                           <Trash2 size={12} />
@@ -781,12 +786,14 @@ export default function App() {
                               </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteHistory(item.id);
+                                  if (window.confirm('Delete this generation? This cannot be undone.')) {
+                                    deleteHistory(item.id);
+                                  }
                                 }}
-                                className="opacity-0 group-hover:opacity-100 bg-black p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                                className="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto p-2 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-all"
                                 title="Delete generation"
                               >
                                 <Trash2 size={16} />

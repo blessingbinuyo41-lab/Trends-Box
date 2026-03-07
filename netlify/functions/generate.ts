@@ -10,7 +10,7 @@ export const handler = async (event: any) => {
   }
 
   try {
-    const { prompt, genType } = JSON.parse(event.body);
+    const { prompt, genType, recentTitles } = JSON.parse(event.body);
     console.log("Processing prompt for type:", genType);
     
     // API Keys from environment
@@ -35,66 +35,74 @@ export const handler = async (event: any) => {
 
     const tvly = tavily({ apiKey: tavilyKey });
 
-    // 1. Search for latest news
+    // 1. Always search for latest news to ensure verified, real sources
     let context = "";
     let sources: any[] = [];
-    
-    if (prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")) {
-      try {
-        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        // Refine search to be extremely aggressive about "today"
-        const searchResult = await tvly.search(`${prompt} breaking news published today ${currentDate} Nigeria`, {
-          searchDepth: "advanced",
-          maxResults: 5, 
-          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
-        });
-        
-        context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
-        
-        // Extract a cleaner platform name from the URL or title
-        sources = searchResult.results.map((r, i) => {
-          const url = new URL(r.url);
-          let platform = url.hostname.replace('www.', '').split('.')[0];
-          
-          // Map common Nigerian news domains to pretty names
-          const platformMap: Record<string, string> = {
-            'punchng': 'The Punch',
-            'vanguardngr': 'Vanguard',
-            'dailypost': 'Daily Post',
-            'premiumtimesng': 'Premium Times',
-            'guardian': 'The Guardian NG',
-            'independent': 'Independent',
-            'thenationonlineng': 'The Nation',
-            'thisdaylive': 'ThisDay'
-          };
-          
-          return { 
-            id: i,
-            name: r.title, 
-            platform: platformMap[platform] || platform.charAt(0).toUpperCase() + platform.slice(1),
-            url: r.url 
-          };
-        });
-      } catch (searchErr) {
-        console.error("Tavily search failed:", searchErr);
-      }
+
+    try {
+      const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      // Build a search query from the prompt
+      const searchQuery = prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")
+        ? `${prompt} breaking news published today ${currentDate} Nigeria`
+        : `${prompt} latest news today ${currentDate} Nigeria`;
+
+      const searchResult = await tvly.search(searchQuery, {
+        searchDepth: "advanced",
+        maxResults: 5,
+        includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
+      });
+
+      context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
+
+      // Extract a cleaner platform name from the URL or title
+      sources = searchResult.results.map((r, i) => {
+        const url = new URL(r.url);
+        let platform = url.hostname.replace('www.', '').split('.')[0];
+
+        // Map common Nigerian news domains to pretty names
+        const platformMap: Record<string, string> = {
+          'punchng': 'The Punch',
+          'vanguardngr': 'Vanguard',
+          'dailypost': 'Daily Post',
+          'premiumtimesng': 'Premium Times',
+          'guardian': 'The Guardian NG',
+          'independent': 'Independent',
+          'thenationonlineng': 'The Nation',
+          'thisdaylive': 'ThisDay'
+        };
+
+        return {
+          id: i,
+          name: r.title,
+          platform: platformMap[platform] || platform.charAt(0).toUpperCase() + platform.slice(1),
+          url: r.url
+        };
+      });
+    } catch (searchErr) {
+      console.error("Tavily search failed:", searchErr);
     }
 
+    // Build duplicate avoidance instruction
+    const recentTitlesList = Array.isArray(recentTitles) && recentTitles.length > 0
+      ? `\n\n    DUPLICATE AVOIDANCE: The user has already generated content with these titles. You MUST choose a DIFFERENT story/topic:\n${recentTitles.map((t: string) => `    - "${t}"`).join('\n')}`
+      : '';
+
     // 2. Generate Content using Llama 3 on Groq
-    const systemPrompt = `You are an elite Nigerian investigative journalist and senior news editor. 
+    const systemPrompt = `You are an elite Nigerian investigative journalist and senior news editor.
     Your task is to transform raw news data into a "crafted" editorial piece.
 
     CRITICAL REQUIREMENT:
     - RECENCY: You MUST ONLY use news from the provided "TODAY'S DATE". If all search results are older than 24 hours from that date, you MUST search for a different trending topic from today within the same category. DO NOT generate news from weeks or months ago.
-    - FOCUS: You MUST select ONE specific, cohesive news story from the provided context or prompt. 
+    - FOCUS: You MUST select ONE specific, cohesive news story from the provided context or prompt.
     - COHESION: The entire article (Title, Excerpt, and Content) must focus strictly on this SINGLE topic. Do not mix multiple unrelated news items.
-    
+    - WEB SOURCES: You MUST base your article on the provided web search context. Do NOT fabricate information. Use the actual facts, figures, and details from the search results.
+
     STYLE GUIDELINES:
     - TITLE: Punchy, specific, and authoritative (e.g., "MTN Bids $6.2B for Full Control of IHS Towers").
     - EXCERPT: A single, elegant, sophisticated sentence capturing the core significance.
     - CONTENT: Professional, human-like delivery with sophisticated vocabulary.
     - SOURCES: Identify which sources from the context (e.g., [Source 0], [Source 1]) are directly relevant to the specific story you generated.
-    - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content, and relevantSourceIds (an array of numbers corresponding to the [Source X] IDs). No markdown outside the JSON.`;
+    - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content, and relevantSourceIds (an array of numbers corresponding to the [Source X] IDs). No markdown outside the JSON.${recentTitlesList}`;
 
     const completion = await groq.chat.completions.create({
       messages: [
