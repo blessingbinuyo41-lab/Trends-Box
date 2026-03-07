@@ -663,12 +663,12 @@ export default function App() {
                   {loading ? (
                     <>
                       <Loader2 className="animate-spin" size={20} />
-                      Generating...
+                      Crafting The Content...
                     </>
                   ) : (
                     <>
                       <Zap size={20} />
-                      Generate News Update
+                      Witness The Magic
                     </>
                   )}
                 </button>
@@ -786,7 +786,7 @@ export default function App() {
                                   e.stopPropagation();
                                   deleteHistory(item.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
+                                className="opacity-0 group-hover:opacity-100 bg-black p-2 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"
                                 title="Delete generation"
                               >
                                 <Trash2 size={16} />
