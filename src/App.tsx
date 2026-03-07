@@ -569,14 +569,14 @@ export default function App() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="bg-black text-white p-8 md:p-12 rounded-[2rem] overflow-hidden relative shadow-xl"
                     style={{
-                      backgroundImage: 'url("/Trends_box_background.png")',
+                      backgroundImage: 'url("/trends_box_dashboard_card copy.png")',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       backgroundRepeat: 'no-repeat'
                     }}
                   >
-                    {/* Enhanced gradient overlay for better text readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/20" />
+                    {/* Gradient overlay for better text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
                     <div className="relative z-10 space-y-4 max-w-lg">
                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-white/10">
                         <Zap size={12} className="text-yellow-400" />
