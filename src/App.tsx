@@ -347,15 +347,9 @@ export default function App() {
   }
 
   return (
-    <div 
-      className="min-h-screen bg-cover bg-center bg-no-repeat text-[#1A1A1A] font-sans flex flex-col lg:flex-row relative"
-      style={{ backgroundImage: 'url("/Trends_box_background.png")' }}
-    >
-      {/* Background overlay for better readability */}
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
-      
+    <div className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans flex flex-col lg:flex-row">
       {/* Mobile Header */}
-      <header className="lg:hidden h-16 bg-white/95 backdrop-blur-md border-b border-white/20 flex items-center justify-between px-4 sticky top-0 z-40 relative">
+      <header className="lg:hidden h-16 bg-white border-b border-black/5 flex items-center justify-between px-4 sticky top-0 z-40">
         <div className="flex items-center gap-2 shrink-0">
           <Logo />
           <h1 className="text-sm font-bold tracking-tight hidden sm:block">Trends Box</h1>
@@ -405,12 +399,12 @@ export default function App() {
       <aside 
         className={`
           fixed lg:sticky top-0 left-0 z-50 lg:z-30
-          w-80 bg-white/95 backdrop-blur-md border-r border-white/20 flex flex-col h-screen relative
+          w-80 bg-white border-r border-black/5 flex flex-col h-screen
           transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-            <div className="p-6 border-b border-white/20 flex items-center justify-between">
+            <div className="p-6 border-b border-black/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Logo className="w-10 h-10" />
                 <h1 className="text-xl font-bold tracking-tight">Trends Box</h1>
@@ -489,7 +483,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="p-6 border-t border-white/20 bg-white/10 backdrop-blur-sm">
+            <div className="p-6 border-t border-black/5 bg-black/[0.02]">
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/40">
@@ -514,8 +508,8 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-0 lg:min-h-screen overflow-y-auto relative">
-        <header className="hidden lg:flex h-16 bg-white/95 backdrop-blur-md border-b border-white/20 items-center justify-between px-8 sticky top-0 z-10">
+      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
+        <header className="hidden lg:flex h-16 bg-white border-b border-black/5 items-center justify-between px-8 sticky top-0 z-10">
           <div className="flex gap-8">
             <button 
               onClick={() => setActiveTab('generate')}
@@ -557,7 +551,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="px-4 py-6 md:p-8 max-w-4xl mx-auto w-full flex-1 relative min-h-0">
+        <div className="px-4 py-6 md:p-8 max-w-4xl mx-auto w-full flex-1">
           <AnimatePresence mode="wait">
             {activeTab === 'generate' ? (
               <motion.div 

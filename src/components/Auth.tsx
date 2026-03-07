@@ -40,16 +40,11 @@ export default function Auth() {
 
   if (success) {
     return (
-      <div 
-        className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 relative"
-        style={{ backgroundImage: 'url("/Trends_box_background.png")' }}
-      >
-        {/* Background overlay for better readability */}
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-xl border border-white/20 overflow-hidden text-center p-12 space-y-6 relative z-10"
+          className="w-full max-w-md bg-white rounded-[2.5rem] shadow-xl border border-black/5 overflow-hidden text-center p-12 space-y-6"
         >
           <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center text-white shadow-lg mx-auto">
             <Mail size={40} />
@@ -73,16 +68,11 @@ export default function Auth() {
   }
 
   return (
-    <div 
-      className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 relative"
-      style={{ backgroundImage: 'url("/Trends_box_background.png")' }}
-    >
-      {/* Background overlay for better readability */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+    <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-xl border border-white/20 overflow-hidden relative z-10"
+        className="w-full max-w-md bg-white rounded-[2.5rem] shadow-xl border border-black/5 overflow-hidden"
       >
         <div className="p-8 md:p-12 space-y-8">
           <div className="flex flex-col items-center text-center space-y-4">
