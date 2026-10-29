@@ -7,3 +7,8 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Load the critical-CSS plugin from package.json so the nwsapi pin in "overrides" applies
+# (nwsapi 2.2.28 breaks the plugin with "Invalid insertion of STYLE node")
+[[plugins]]
+  package = "netlify-plugin-inline-critical-css"

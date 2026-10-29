@@ -110,7 +110,7 @@ async function startServer() {
           { role: "system", content: systemPrompt },
           { role: "user", content: context ? `Context: ${context}\n\nPrompt: ${prompt}` : prompt }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         response_format: { type: "json_object" },
       });
 

@@ -2,30 +2,35 @@ import { OpenAI } from "openai";
 import { tavily } from "@tavily/core";
 import { GoogleGenAI } from "@google/genai";
 
-export const handler = async (event: any) => {
-  console.log("Function triggered with method:", event.httpMethod);
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+
+export default async (req: Request) => {
+  console.log("Function triggered with method:", req.method);
   
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
   }
 
   try {
-    const { prompt, genType, recentTitles } = JSON.parse(event.body);
+    const { prompt, genType, recentTitles } = await req.json();
     console.log("Processing prompt for type:", genType);
     
     // API Keys from environment
     const groqKey = process.env.GROQ_API_KEY;
     const tavilyKey = process.env.TAVILY_API_KEY;
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    // Gemini image generation goes through Netlify AI Gateway (credentials injected automatically)
+    const gatewayKey = process.env.NETLIFY_AI_GATEWAY_KEY;
+    const gatewayUrl = process.env.NETLIFY_AI_GATEWAY_URL?.replace(/\/$/, "");
 
     if (!groqKey || !tavilyKey) {
       console.error("Missing API Keys in environment");
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ 
-          error: "Missing API Keys. Please ensure GROQ_API_KEY and TAVILY_API_KEY are set in Netlify environment variables." 
-        }),
-      };
+      return json({ 
+        error: "Missing API Keys. Please ensure GROQ_API_KEY and TAVILY_API_KEY are set in Netlify environment variables." 
+      }, 500);
     }
 
     const groq = new OpenAI({
@@ -87,7 +92,7 @@ export const handler = async (event: any) => {
       ? `\n\n    DUPLICATE AVOIDANCE: The user has already generated content with these titles. You MUST choose a DIFFERENT story/topic:\n${recentTitles.map((t: string) => `    - "${t}"`).join('\n')}`
       : '';
 
-    // 2. Generate Content using Llama 3 on Groq
+    // 2. Generate Content on Groq
     const systemPrompt = `You are an elite Nigerian investigative journalist and senior news editor.
     Your task is to transform raw news data into a "crafted" editorial piece.
 
@@ -109,7 +114,7 @@ export const handler = async (event: any) => {
         { role: "system", content: systemPrompt },
         { role: "user", content: context ? `Context: ${context}\n\nPrompt: ${prompt}` : prompt }
       ],
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       response_format: { type: "json_object" },
     });
 
@@ -128,9 +133,9 @@ export const handler = async (event: any) => {
     // 3. High-Quality Image Generation using Gemini
     let imageUrl = `https://picsum.photos/seed/${encodeURIComponent(data.title || 'news')}/1200/630`;
     
-    if (geminiKey) {
+    if (gatewayKey && gatewayUrl) {
       try {
-        const genAI = new GoogleGenAI({ apiKey: geminiKey });
+        const genAI = new GoogleGenAI({ apiKey: gatewayKey, httpOptions: { baseUrl: gatewayUrl } });
         const imgModel = await genAI.models.generateContent({
           model: 'gemini-2.5-flash-image',
           contents: {
@@ -151,24 +156,13 @@ export const handler = async (event: any) => {
       }
     }
 
-    return {
-      statusCode: 200,
-      headers: { 
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*" 
-      },
-      body: JSON.stringify({ 
-        ...data, 
-        sources: filteredSources,
-        imageUrl 
-      }),
-    };
+    return json({ 
+      ...data, 
+      sources: filteredSources,
+      imageUrl 
+    });
   } catch (error: any) {
     console.error("Function execution error:", error);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: error.message || "Internal Server Error" }),
-    };
+    return json({ error: error.message || "Internal Server Error" }, 500);
   }
 };
