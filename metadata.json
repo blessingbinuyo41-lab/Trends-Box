@@ -1,5 +1,8 @@
 {
   "name": "Trends Box",
   "description": "Real-time Nigerian news aggregator and content generator with AI-powered summarization, social media formatting, and source reliability tracking.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -13,6 +13,106 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function generateEditorialCover(title: string, category: string, dateStr: string, platform?: string): string {
+  // Clean and escape XML entities in title
+  const safeTitle = (title || "Nigeria Breaking News")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+
+  const safeCategory = (category || "GENERAL").toUpperCase();
+  const safeDate = dateStr || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const safePlatform = (platform || "TRENDS BOX VERIFIED").toUpperCase();
+
+  // Color schemes based on category
+  const themeMap: Record<string, { bg1: string; bg2: string; accent: string; badgeBg: string; textAccent: string }> = {
+    POLITICS: { bg1: "#140a10", bg2: "#260c18", accent: "#f43f5e", badgeBg: "#be123c", textAccent: "#fda4af" },
+    TECHNOLOGY: { bg1: "#07131e", bg2: "#0c2438", accent: "#06b6d4", badgeBg: "#0e7490", textAccent: "#67e8f9" },
+    ENTERTAINMENT: { bg1: "#160b1e", bg2: "#2a103a", accent: "#c084fc", badgeBg: "#7e22ce", textAccent: "#e9d5ff" },
+    SPORTS: { bg1: "#061510", bg2: "#0b281d", accent: "#10b981", badgeBg: "#047857", textAccent: "#6ee7b7" },
+    GENERAL: { bg1: "#0f1117", bg2: "#161b26", accent: "#38bdf8", badgeBg: "#1d4ed8", textAccent: "#bae6fd" },
+  };
+
+  const theme = themeMap[safeCategory] || themeMap.GENERAL;
+
+  // Split title into lines (max ~34 chars per line for bold typography)
+  const words = safeTitle.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    if ((currentLine + ' ' + word).trim().length > 34) {
+      if (currentLine) lines.push(currentLine.trim());
+      currentLine = word;
+      if (lines.length >= 3) break;
+    } else {
+      currentLine = currentLine ? `${currentLine} ${word}` : word;
+    }
+  }
+  if (currentLine && lines.length < 3) {
+    lines.push(currentLine.trim());
+  }
+  if (words.length > 0 && lines.length === 3 && currentLine !== lines[2]) {
+    lines[2] = lines[2].replace(/\s+\S+$/, '...');
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+    <defs>
+      <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${theme.bg1}"/>
+        <stop offset="100%" stop-color="${theme.bg2}"/>
+      </linearGradient>
+      <radialGradient id="glow" cx="80%" cy="25%" r="65%">
+        <stop offset="0%" stop-color="${theme.accent}" stop-opacity="0.32"/>
+        <stop offset="100%" stop-color="${theme.accent}" stop-opacity="0"/>
+      </radialGradient>
+      <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+        <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    
+    <!-- Background Base -->
+    <rect width="1200" height="630" fill="url(#bgGrad)"/>
+    <rect width="1200" height="630" fill="url(#grid)"/>
+    <circle cx="920" cy="180" r="480" fill="url(#glow)"/>
+    
+    <!-- Top Header Bar -->
+    <g transform="translate(80, 80)">
+      <rect x="0" y="0" width="140" height="34" rx="17" fill="${theme.badgeBg}" opacity="0.95"/>
+      <text x="70" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="12" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">${safeCategory}</text>
+      
+      <circle cx="165" cy="17" r="3.5" fill="rgba(255,255,255,0.4)"/>
+      <text x="185" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="12" font-weight="700" fill="rgba(255,255,255,0.7)" letter-spacing="1.5">TRENDS BOX EDITORIAL</text>
+      
+      <text x="1040" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="12" font-weight="600" fill="rgba(255,255,255,0.45)" text-anchor="end" letter-spacing="1">${safeDate}</text>
+    </g>
+
+    <!-- Main Headline Text (Matches the exact news headline) -->
+    <g transform="translate(80, 220)">
+      ${lines.map((line, i) => `
+        <text x="0" y="${i * 74}" font-family="'Playfair Display', Georgia, serif" font-size="52" font-weight="800" fill="#ffffff" letter-spacing="-0.5">
+          ${line}
+        </text>
+      `).join('')}
+    </g>
+    
+    <!-- Editorial Accent Line -->
+    <rect x="80" y="475" width="140" height="5" rx="2.5" fill="${theme.accent}"/>
+
+    <!-- Footer Bar -->
+    <g transform="translate(80, 540)">
+      <circle cx="6" cy="6" r="5" fill="${theme.accent}"/>
+      <circle cx="6" cy="6" r="10" fill="${theme.accent}" opacity="0.2"/>
+      <text x="28" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="13" font-weight="700" fill="${theme.textAccent}" letter-spacing="1.2">${safePlatform}</text>
+      <text x="1040" y="11" font-family="-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" font-size="12" font-weight="500" fill="rgba(255,255,255,0.35)" text-anchor="end">NIGERIA'S REAL-TIME NEWS AGGREGATOR</text>
+    </g>
+  </svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -22,7 +122,7 @@ async function startServer() {
   // Local proxy for Netlify Functions to support AI Studio preview
   app.post("/.netlify/functions/generate", async (req, res) => {
     try {
-      const { prompt, genType, recentTitles } = req.body;
+      const { prompt, genType, category, recentTitles } = req.body;
       const groqKey = process.env.GROQ_API_KEY;
       const tavilyKey = process.env.TAVILY_API_KEY;
       const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -42,10 +142,13 @@ async function startServer() {
 
       let context = "";
       let sources: any[] = [];
+      let searchImages: string[] = [];
+      const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      const currentCategory = category || 'General';
+      const isSocial = genType === 'social';
 
-      // Always search for latest news to ensure verified, real sources
+      // 1. Search latest breaking Nigerian news with image extraction enabled
       try {
-        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
         const searchQuery = prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")
           ? `${prompt} breaking news published today ${currentDate} Nigeria`
           : `${prompt} latest news today ${currentDate} Nigeria`;
@@ -53,11 +156,18 @@ async function startServer() {
         const searchResult = await tvly.search(searchQuery, {
           searchDepth: "advanced",
           maxResults: 5,
+          includeImages: true,
           includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
         });
+
+        if (Array.isArray(searchResult.images) && searchResult.images.length > 0) {
+          searchImages = searchResult.images
+            .map((img: any) => typeof img === 'string' ? img : img?.url)
+            .filter((url): url is string => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://')));
+        }
+
         context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
 
-        // Extract a cleaner platform name from the URL or title
         sources = searchResult.results.map((r, i) => {
           const url = new URL(r.url);
           let platform = url.hostname.replace('www.', '').split('.')[0];
@@ -89,21 +199,50 @@ async function startServer() {
         ? `\n\n      DUPLICATE AVOIDANCE: The user has already generated content with these titles. You MUST choose a DIFFERENT story/topic:\n${recentTitles.map((t: string) => `      - "${t}"`).join('\n')}`
         : '';
 
-      const systemPrompt = `You are an elite Nigerian investigative journalist and senior news editor.
-      Your task is to transform raw news data into a "crafted" editorial piece.
+      // 2. Upgraded Reasoning Algorithm Engine
+      const systemPrompt = `You are an elite Nigerian senior investigative journalist, editor-in-chief, and social media news strategist.
+Your task is to analyze breaking news from today (${currentDate}) and transform raw news data into a masterful, authentic editorial piece with genuine human delivery.
 
-      CRITICAL REQUIREMENT:
-      - RECENCY: You MUST ONLY use news from the provided "TODAY'S DATE". If all search results are older than 24 hours from that date, you MUST search for a different trending topic from today within the same category. DO NOT generate news from weeks or months ago.
-      - FOCUS: You MUST select ONE specific, cohesive news story from the provided context or prompt.
-      - COHESION: The entire article (Title, Excerpt, and Content) must focus strictly on this SINGLE topic. Do not mix multiple unrelated news items.
-      - WEB SOURCES: You MUST base your article on the provided web search context. Do NOT fabricate information. Use the actual facts, figures, and details from the search results.
+CORE EDITORIAL & REASONING PRINCIPLES:
+1. RECENCY & FACTUAL RIGOR:
+   - You MUST anchor strictly to news from TODAY (${currentDate}). Never report stale news from weeks ago.
+   - Rely strictly on verifiable facts, figures, names, and quotes provided in the search context. Do not hallucinate or invent statements.
+2. HUMAN-LIKE DELIVERY (NO AI CLICHES):
+   - Write with the authoritative, engaging cadence of a premier Nigerian news columnist.
+   - BANNED CLICHES: Never use robotic AI filler phrases like "In a pivotal move", "In a significant development", "It is worth noting", "Only time will tell", "A testament to", "In conclusion", "Fast forward to today", or "Amidst growing concerns".
+   - Employ active verbs, compelling storytelling, varied sentence pacing, and authentic Nigerian context (currency symbols, locations, ministries, public sentiment).
 
-      STYLE GUIDELINES:
-      - TITLE: Punchy, specific, and authoritative (e.g., "MTN Bids $6.2B for Full Control of IHS Towers").
-      - EXCERPT: A single, elegant, sophisticated sentence capturing the core significance.
-      - CONTENT: Professional, human-like delivery with sophisticated vocabulary.
-      - SOURCES: Identify which sources from the context (e.g., [Source 0], [Source 1]) are directly relevant to the specific story you generated.
-      - FORMAT: Return ONLY a JSON object with fields: title, excerpt, content, and relevantSourceIds (an array of numbers corresponding to the [Source X] IDs). No markdown outside the JSON.${recentTitlesList}`;
+TARGET FORMAT: ${isSocial ? 'SOCIAL MEDIA CONTENT' : 'FULL BLOG EDITORIAL'}
+
+${isSocial ? `
+SPECIFIC SOCIAL FORMAT REQUIREMENTS:
+- TITLE: Punchy, urgent, scroll-stopping headline under 12 words with an active hook (e.g. "⚡ FG Discloses Key Terms in ₦4.2T Infrastructure Bond").
+- EXCERPT: Exactly 1 single, high-impact sentence delivering the central takeaway.
+- CONTENT:
+  * First paragraph: Exactly 1-2 crisp, punchy sentences detailing the breaking event and what it means right now.
+  * Second paragraph: 2-3 bullet points of critical figures/facts (formatted with •).
+  * Third line: 3-4 trending Nigerian hashtags (e.g., #Nigeria #Lagos #${currentCategory.replace(/\s+/g, '')} #TrendsBox).
+` : `
+SPECIFIC BLOG EDITORIAL REQUIREMENTS:
+- TITLE: Authoritative, compelling headline specific to the story (e.g., "Inside the ₦4.2T Infrastructure Deal: Why Lagos-Calabar Highway Is at the Center").
+- EXCERPT: A single, elegant, sophisticated sentence capturing the core significance.
+- CONTENT: Complete investigative article structured into logical narrative sections:
+  * An immediate opening hook revealing the breaking event.
+  * Deep investigative reporting with specific figures, dates, and quotes from verified sources.
+  * Practical implications for Nigerian citizens, businesses, and policymakers.
+  * Forward-looking perspective without generic conclusions.
+- SOCIAL COMPANION (REQUIRED): Always provide 'socialTitle', 'socialContent' (1-2 crisp sentences + key bullet takeaways + hashtags) and 'hashtags' so this blog can be seamlessly converted to social media format!
+`}
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object with the following fields:
+- "title": string (the headline)
+- "excerpt": string (1 crisp sentence)
+- "content": string (the full formatted content)
+- "relevantSourceIds": array of numbers matching the [Source X] IDs
+- "socialTitle": string (punchy social headline)
+- "socialContent": string (the 1-2 sentence core insight + bullet takeaways + hashtags)
+- "hashtags": array of strings (e.g. ["#Nigeria", "#${currentCategory.replace(/\s+/g, '')}", "#TrendsBox"])${recentTitlesList}`;
 
       const completion = await groq.chat.completions.create({
         messages: [
@@ -121,21 +260,29 @@ async function startServer() {
       if (data.relevantSourceIds && Array.isArray(data.relevantSourceIds)) {
         filteredSources = sources.filter(s => data.relevantSourceIds.includes(s.id));
       }
-      // Fallback: if model returned no sources but we have some, keep the first one as a safety net
       if (filteredSources.length === 0 && sources.length > 0) {
         filteredSources = [sources[0]];
       }
 
-      // High-Quality Image Generation using Gemini
-      let imageUrl = `https://picsum.photos/seed/${encodeURIComponent(data.title || 'news')}/1200/630`;
-      
-      if (geminiKey) {
+      // 3. Headline-Matched Cover Image Generation (Never random picsum photos!)
+      let imageUrl = "";
+
+      // Option A: Gemini image generation if valid API key is present
+      const trimmedGeminiKey = (geminiKey || "").trim();
+      if (trimmedGeminiKey && trimmedGeminiKey.length > 10 && trimmedGeminiKey !== "undefined" && trimmedGeminiKey !== "placeholder") {
         try {
-          const genAI = new GoogleGenAI({ apiKey: geminiKey });
+          const genAI = new GoogleGenAI({ 
+            apiKey: trimmedGeminiKey,
+            httpOptions: {
+              headers: {
+                'User-Agent': 'aistudio-build'
+              }
+            }
+          });
           const imgModel = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-3.1-flash-lite-image',
             contents: {
-              parts: [{ text: `A high-end editorial news graphic for a story titled: "${data.title}". The image should look like a professional magazine cover or a lead digital journalism header. Incorporate relevant Nigerian corporate or urban elements, clean typography-friendly composition, and a sophisticated color palette. Style: Photorealistic, cinematic lighting, 8k resolution, professional branding.` }]
+              parts: [{ text: `A high-end editorial digital news banner strictly for the news headline: "${data.title}". Nigerian news photojournalism style, sophisticated typography-friendly composition, cinematic lighting, 8k resolution, professional branding.` }]
             },
             config: { imageConfig: { aspectRatio: "16:9" } }
           });
@@ -147,18 +294,102 @@ async function startServer() {
             }
           }
         } catch (imgErr) {
-          console.error("Local Gemini image generation failed:", imgErr);
+          console.warn("Gemini image generation skipped:", imgErr);
         }
+      }
+
+      // Option B: Real photo from the searched news article if Tavily extracted one
+      if (!imageUrl && searchImages.length > 0) {
+        const validPhoto = searchImages.find(img => typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')) && !img.includes('logo') && !img.includes('icon'));
+        if (validPhoto) {
+          imageUrl = validPhoto;
+        }
+      }
+
+      // Option C: Bespoke Editorial News Headline Cover (Guaranteed to match the exact news headline!)
+      if (!imageUrl) {
+        const topPlatform = filteredSources[0]?.platform || "Trends Box Verified";
+        imageUrl = generateEditorialCover(data.title, currentCategory, currentDate, topPlatform);
       }
 
       res.json({ 
         ...data, 
         sources: filteredSources,
-        imageUrl 
+        imageUrl,
+        category: currentCategory,
+        type: genType
       });
     } catch (error: any) {
       console.error("Local function error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Convert any existing blog post into social format
+  app.post("/api/convert-to-social", async (req, res) => {
+    try {
+      const { title, excerpt, content, category } = req.body;
+      const groqKey = process.env.GROQ_API_KEY;
+
+      if (!title || !content) {
+        return res.status(400).json({ error: "Missing title or content" });
+      }
+
+      if (groqKey) {
+        try {
+          const groq = new OpenAI({
+            apiKey: groqKey,
+            baseURL: "https://api.groq.com/openai/v1",
+          });
+
+          const prompt = `Convert this Nigerian news blog article into an exact social media post.
+Article Title: ${title}
+Article Excerpt: ${excerpt || ''}
+Article Content: ${content.substring(0, 2000)}
+
+Requirements:
+- socialTitle: Catchy, scroll-stopping headline under 12 words with an active hook (e.g. "⚡ ${title.replace(/^[⚡\s]+/, '')}").
+- socialExcerpt: 1-sentence core takeaway.
+- socialContent: Exactly 1-2 punchy sentences summarizing the core facts, followed by 2-3 bullet points with key numbers/details, and 3-4 trending hashtags (e.g. #Nigeria #${(category || 'News').replace(/\s+/g, '')} #TrendsBox).
+- hashtags: array of hashtags.
+
+Return ONLY a JSON object with fields: socialTitle, socialExcerpt, socialContent, hashtags.`;
+
+          const completion = await groq.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "openai/gpt-oss-120b",
+            response_format: { type: "json_object" },
+          });
+
+          const data = JSON.parse(completion.choices[0].message.content || '{}');
+          return res.json(data);
+        } catch (groqErr) {
+          console.warn("Groq conversion failed, using fallback:", groqErr);
+        }
+      }
+
+      // Fast fallback if Groq is unavailable
+      const firstSentence = excerpt || content.split('.')[0] + '.';
+      const bullets = content
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 20 && !l.startsWith('#'))
+        .slice(1, 4)
+        .map(l => `• ${l.length > 100 ? l.slice(0, 97) + '...' : l}`)
+        .join('\n');
+
+      const catTag = `#${(category || 'Nigeria').replace(/\s+/g, '')}`;
+      const fallbackContent = `${firstSentence}\n\n${bullets ? `${bullets}\n\n` : ''}#Nigeria ${catTag} #TrendsBox #Breaking`;
+
+      return res.json({
+        socialTitle: title.startsWith('⚡') ? title : `⚡ ${title}`,
+        socialExcerpt: firstSentence,
+        socialContent: fallbackContent,
+        hashtags: ['#Nigeria', catTag, '#TrendsBox']
+      });
+    } catch (err: any) {
+      console.error("Convert error:", err);
+      res.status(500).json({ error: err.message });
     }
   });
 

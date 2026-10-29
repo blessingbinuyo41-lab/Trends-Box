@@ -19,6 +19,10 @@ export interface GenerationRecord {
   imageUrl?: string;
   sources: NewsSource[];
   timestamp: string;
+  user_id?: string;
+  socialTitle?: string;
+  socialContent?: string;
+  hashtags?: string[];
 }
 
 export interface ReliabilityScore {

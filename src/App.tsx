@@ -4,14 +4,17 @@
  */
 
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Search, History, Share2, FileText, Trash2, ExternalLink, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ChevronRight, ChevronDown, Star, MessageSquare, X, LayoutDashboard, Globe, Zap, ChartBar as BarChart3, RotateCcw, LogOut } from 'lucide-react';
+import { Search, History, Share2, FileText, Trash2, ExternalLink, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ChevronRight, ChevronDown, Star, MessageSquare, X, LayoutDashboard, Globe, Zap, ChartBar as BarChart3, RotateCcw, LogOut, Lock, ShieldAlert, Copy, Check, ArrowRightLeft, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
 import ConfirmationModal from './components/ConfirmationModal';
+import DailyLimitModal from './components/DailyLimitModal';
+import { NewsDisplay } from './components/NewsDisplay';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
+import { generateEditorialCover, convertBlogToSocial } from './lib/editorialCover';
 
 // Safe access to process.env for production builds
 const getApiKey = () => {
@@ -24,7 +27,74 @@ const getApiKey = () => {
   }
 };
 
-const DAILY_LIMIT = 20;
+const DAILY_LIMIT = 10;
+
+interface UsageBadgeProps {
+  count: number;
+  limit: number;
+  isMobile?: boolean;
+  onClick?: () => void;
+}
+
+const UsageBadge = memo(function UsageBadge({ count, limit, isMobile = false, onClick }: UsageBadgeProps) {
+  const isExceeded = count >= limit;
+  const isNearLimit = !isExceeded && count >= Math.floor(limit * 0.7);
+
+  // Dynamic styling based on usage tier
+  const colorStyles = isExceeded
+    ? "bg-rose-50 text-rose-700 border-rose-200/90 shadow-xs ring-1 ring-rose-300/60"
+    : isNearLimit
+    ? "bg-amber-50 text-amber-800 border-amber-200/90 shadow-xs ring-1 ring-amber-200/40"
+    : "bg-[#F5F5F5] hover:bg-neutral-100 text-neutral-800 border-neutral-200/80 shadow-xs";
+
+  const iconColor = isExceeded
+    ? "text-rose-600"
+    : isNearLimit
+    ? "text-amber-600"
+    : "text-neutral-500";
+
+  return (
+    <button 
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border transition-all duration-300 select-none cursor-pointer active:scale-95 hover:brightness-95 ${colorStyles} ${
+        isMobile ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
+      }`}
+      title={`Daily Usage: ${count}/${limit} used today (Click to view limit details)`}
+      role="status"
+      aria-label={`Daily usage: ${count} of ${limit}. Click for details`}
+    >
+      <motion.div
+        key={`icon-${count}`}
+        animate={isExceeded ? { scale: [1, 1.3, 1], rotate: [0, -10, 10, 0] } : { scale: [1, 1.22, 1] }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="flex items-center justify-center shrink-0"
+      >
+        <BarChart3 
+          size={isMobile ? 12 : 13} 
+          className={`${iconColor} transition-colors`} 
+        />
+      </motion.div>
+      <div className="flex items-center font-mono leading-none tracking-tight">
+        <div className="relative overflow-hidden inline-flex items-center justify-center">
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={`count-${count}`}
+              initial={{ y: -9, opacity: 0, scale: 0.75 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 9, opacity: 0, scale: 0.75 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              className="font-bold tabular-nums inline-block"
+            >
+              {count}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+        <span className="opacity-40 font-semibold text-[10px] sm:text-[11px] ml-0.5">/{limit}</span>
+      </div>
+    </button>
+  );
+});
 
 const Logo = memo(function Logo({ className = "w-8 h-8" }: { className?: string }) {
   return (
@@ -59,6 +129,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -175,7 +246,7 @@ export default function App() {
   };
   const handleGenerate = async () => {
     if (usageCount >= DAILY_LIMIT) {
-      alert('Daily generation limit reached. Please try again tomorrow.');
+      setIsLimitModalOpen(true);
       return;
     }
     setLoading(true);
@@ -201,7 +272,7 @@ export default function App() {
       const response = await fetch('/.netlify/functions/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, genType, recentTitles })
+        body: JSON.stringify({ prompt, genType, category, recentTitles })
       });
 
       const responseText = await response.text();
@@ -217,7 +288,7 @@ export default function App() {
         throw new Error(data.error || `Server Error (${response.status})`);
       }
 
-      const imageUrl = data.imageUrl || '';
+      const imageUrl = data.imageUrl || generateEditorialCover(data.title, category);
 
       const enrichedSources = (data.sources || []).map((s: any) => ({
         ...s,
@@ -233,7 +304,10 @@ export default function App() {
         category: category,
         image_url: imageUrl,
         sources: enrichedSources,
-        user_id: user.id
+        user_id: user?.id,
+        socialTitle: data.socialTitle,
+        socialContent: data.socialContent,
+        hashtags: data.hashtags
       };
 
       // Save to DB
@@ -288,7 +362,10 @@ export default function App() {
       const uiRecord: GenerationRecord = {
         ...newRecord,
         imageUrl: newRecord.image_url,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        socialTitle: data.socialTitle,
+        socialContent: data.socialContent,
+        hashtags: data.hashtags
       };
 
       setResult(uiRecord);
@@ -297,7 +374,13 @@ export default function App() {
       
       // Update local state
       setHistory(prev => [uiRecord, ...prev]);
-      setUsageCount(prev => prev + 1);
+      setUsageCount(prev => {
+        const next = prev + 1;
+        if (next >= DAILY_LIMIT) {
+          setTimeout(() => setIsLimitModalOpen(true), 1200);
+        }
+        return next;
+      });
     } catch (err: any) {
       console.error('Generation failed:', err);
       if (err.message === 'API_KEY_MISSING') {
@@ -334,6 +417,33 @@ export default function App() {
     if (selectedHistoryItem?.id === id) setSelectedHistoryItem(null);
   };
 
+  const handleSaveAsSocial = async (newSocialItem: GenerationRecord) => {
+    try {
+      if (user) {
+        const dbRecord = {
+          id: newSocialItem.id,
+          user_id: user.id,
+          title: newSocialItem.title,
+          excerpt: newSocialItem.excerpt,
+          content: newSocialItem.content,
+          type: 'social',
+          category: newSocialItem.category,
+          image_url: newSocialItem.imageUrl,
+          sources: newSocialItem.sources
+        };
+        const { error } = await supabase.from('history').insert([dbRecord]);
+        if (error) console.warn('Supabase social save fallback:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase social save failed, falling back to localStorage', err);
+    }
+    const localHistory = JSON.parse(localStorage.getItem('trendsbox_history') || '[]');
+    localStorage.setItem('trendsbox_history', JSON.stringify([newSocialItem, ...localHistory]));
+
+    setHistory(prev => [newSocialItem, ...prev]);
+    setSelectedHistoryItem(newSocialItem);
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
@@ -349,14 +459,14 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans flex flex-col lg:flex-row">
       {/* Mobile Header */}
-      <header className="lg:hidden h-16 bg-white border-b border-black/5 flex items-center justify-between px-4 sticky top-0 z-40">
+      <header className="lg:hidden h-16 bg-white border-b border-black/5 flex items-center justify-between px-3 sm:px-4 sticky top-0 z-40 gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <Logo />
           <h1 className="text-sm font-bold tracking-tight hidden sm:block">Trends Box</h1>
         </div>
 
         {/* Mobile Tabs in Header */}
-        <div className="flex p-1 bg-[#F5F5F5] rounded-xl mx-4 flex-1 max-w-[200px]">
+        <div className="flex p-1 bg-[#F5F5F5] rounded-xl flex-1 max-w-[170px] sm:max-w-[200px]">
           <button 
             onClick={() => setActiveTab('generate')}
             className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all ${activeTab === 'generate' ? 'bg-white shadow-sm text-black' : 'text-black/40'}`}
@@ -371,28 +481,32 @@ export default function App() {
           </button>
         </div>
 
-        <button 
-          onClick={handleReset}
-          className="p-2 hover:bg-black/5 rounded-lg transition-colors shrink-0 text-black/40 hover:text-black"
-          title="Reset App"
-        >
-          <motion.div
-            animate={{ 
-              rotate: isResetting ? -360 : 0,
-              scale: isResetting ? [1, 0.8, 1.2, 1] : 1
-            }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-          >
-            <RotateCcw size={20} />
-          </motion.div>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <UsageBadge count={usageCount} limit={DAILY_LIMIT} isMobile onClick={() => setIsLimitModalOpen(true)} />
 
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 hover:bg-black/5 rounded-lg transition-colors shrink-0"
-        >
-          {mobileMenuOpen ? <X size={24} /> : <LayoutDashboard size={24} />}
-        </button>
+          <button 
+            onClick={handleReset}
+            className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg transition-colors shrink-0 text-black/40 hover:text-black"
+            title="Reset App"
+          >
+            <motion.div
+              animate={{ 
+                rotate: isResetting ? -360 : 0,
+                scale: isResetting ? [1, 0.8, 1.2, 1] : 1
+              }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+            >
+              <RotateCcw size={18} />
+            </motion.div>
+          </button>
+
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 sm:p-2 hover:bg-black/5 rounded-lg transition-colors shrink-0"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <LayoutDashboard size={20} />}
+          </button>
+        </div>
       </header>
 
       {/* Sidebar - History */}
@@ -482,20 +596,6 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            <div className="p-6 border-t border-black/5 bg-black/[0.02]">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-black/40">
-                    <BarChart3 size={12} />
-                    Daily Usage
-                  </div>
-                  <span className={`text-[10px] font-bold ${usageCount >= DAILY_LIMIT ? 'text-red-500' : 'text-black/60'}`}>
-                    {usageCount}/{DAILY_LIMIT}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
       </aside>
 
@@ -510,7 +610,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
         <header className="hidden lg:flex h-16 bg-white border-b border-black/5 items-center justify-between px-8 sticky top-0 z-10">
-          <div className="flex gap-8">
+          <div className="flex items-center gap-8">
             <button 
               onClick={() => setActiveTab('generate')}
               className={`text-sm font-medium transition-colors ${activeTab === 'generate' ? 'text-black' : 'text-black/40 hover:text-black/60'}`}
@@ -524,7 +624,9 @@ export default function App() {
               View Results
             </button>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <UsageBadge count={usageCount} limit={DAILY_LIMIT} onClick={() => setIsLimitModalOpen(true)} />
+
             <button 
               onClick={handleReset}
               className="p-2 hover:bg-black/5 rounded-lg transition-colors text-black/40 hover:text-black flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
@@ -678,20 +780,74 @@ export default function App() {
                   <textarea 
                     value={manualInput}
                     onChange={(e) => setManualInput(e.target.value)}
-                    placeholder="e.g. Focus on the recent fuel price changes in Lagos..."
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        if (usageCount >= DAILY_LIMIT) {
+                          setIsLimitModalOpen(true);
+                        } else if (!loading) {
+                          handleGenerate();
+                        }
+                      }
+                    }}
+                    placeholder={
+                      usageCount >= DAILY_LIMIT
+                        ? "Daily generation quota reached (10/10). Resets tonight at midnight 00:00."
+                        : "e.g. Focus on the recent fuel price changes in Lagos..."
+                    }
                     className="w-full bg-[#F5F5F5] border-none rounded-2xl px-4 py-4 text-sm min-h-[100px] md:min-h-[120px] focus:ring-2 focus:ring-black transition-all"
                   />
                 </div>
 
+                {/* Inline Generation Limit Blocking Notice */}
+                {usageCount >= DAILY_LIMIT && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98, y: 4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="p-4 bg-rose-50/90 border border-rose-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-3 text-rose-800">
+                      <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200/80 flex items-center justify-center shrink-0 text-rose-600">
+                        <ShieldAlert size={18} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-rose-950 text-xs sm:text-sm">Daily Generation Quota Reached (10/10)</div>
+                        <div className="text-rose-700/80 text-[11px] leading-relaxed">Further generation is blocked until the counter automatically resets at midnight.</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsLimitModalOpen(true)}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl text-xs shrink-0 transition-all shadow-xs cursor-pointer text-center"
+                    >
+                      Limit Details
+                    </button>
+                  </motion.div>
+                )}
+
                 <button 
-                  onClick={handleGenerate}
+                  onClick={() => {
+                    if (usageCount >= DAILY_LIMIT) {
+                      setIsLimitModalOpen(true);
+                      return;
+                    }
+                    handleGenerate();
+                  }}
                   disabled={loading}
-                  className="w-full bg-black text-white py-3 md:py-4 rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full py-3.5 md:py-4 rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    usageCount >= DAILY_LIMIT
+                      ? 'bg-neutral-900 text-rose-400 hover:bg-black border border-rose-500/30 shadow-md'
+                      : 'bg-black text-white hover:bg-black/90 shadow-md hover:shadow-lg'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {loading ? (
                     <>
                       <Loader2 className="animate-spin" size={20} />
                       Crafting The Content...
+                    </>
+                  ) : usageCount >= DAILY_LIMIT ? (
+                    <>
+                      <Lock size={18} className="text-rose-400" />
+                      <span>Daily Limit Reached (10/10) • Locked</span>
                     </>
                   ) : (
                     <>
@@ -733,7 +889,7 @@ export default function App() {
                     <CheckCircle2 size={20} />
                     <span className="text-xs md:text-sm font-medium">Content successfully generated and saved to history!</span>
                   </div>
-                  <NewsDisplay item={result} />
+                  <NewsDisplay item={result} onSaveAsSocial={handleSaveAsSocial} />
                 </motion.div>
               )}
             </motion.div>
@@ -754,7 +910,7 @@ export default function App() {
                     <ChevronRight className="rotate-180" size={16} />
                     Back to History
                   </button>
-                  <NewsDisplay item={selectedHistoryItem} />
+                  <NewsDisplay item={selectedHistoryItem} onSaveAsSocial={handleSaveAsSocial} />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -849,101 +1005,20 @@ export default function App() {
         onClose={closeDeleteModal}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Daily Limit Modal */}
+      <DailyLimitModal
+        isOpen={isLimitModalOpen}
+        onClose={() => setIsLimitModalOpen(false)}
+        onViewHistory={() => {
+          setActiveTab('history');
+          if (history.length > 0 && !selectedHistoryItem) {
+            setSelectedHistoryItem(history[0]);
+          }
+        }}
+        currentUsage={usageCount}
+        maxLimit={DAILY_LIMIT}
+      />
     </div>
   );
 }
-
-const NewsDisplay = memo(function NewsDisplay({ item }: { item: GenerationRecord }) {
-  return (
-    <div className="bg-white rounded-2xl md:rounded-3xl border border-black/5 shadow-sm overflow-hidden flex flex-col">
-      {item.imageUrl && (
-        <div className="aspect-[21/9] w-full overflow-hidden bg-black/5 relative">
-          <img 
-            src={item.imageUrl} 
-            alt={item.title} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6 md:p-8">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-white text-black text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
-                  {item.category}
-                </span>
-                <span className="px-2 py-0.5 bg-black/40 backdrop-blur-md text-white text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
-                  {item.type === 'social' ? 'Social' : 'Blog'}
-                </span>
-              </div>
-              <h1 className="text-xl md:text-3xl font-bold text-white tracking-tight leading-tight drop-shadow-lg">
-                {item.title}
-              </h1>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="p-6 md:p-10 space-y-8">
-        {!item.imageUrl && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="px-2 py-0.5 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded">
-                {item.category}
-              </span>
-              <span className="text-[8px] md:text-xs font-bold text-black/40 uppercase tracking-widest">
-                {item.type === 'social' ? 'Social Content' : 'Blog Post'}
-              </span>
-            </div>
-            <h1 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight">
-              {item.title}
-            </h1>
-          </div>
-        )}
-
-        <div className="space-y-6">
-          <p className="text-lg md:text-xl text-black/60 italic font-serif leading-relaxed border-l-4 border-black/10 pl-6">
-            {item.excerpt}
-          </p>
-
-          <div className="prose prose-sm md:prose-base max-w-none text-black/80 leading-relaxed space-y-4 whitespace-pre-wrap font-medium">
-            {item.content}
-          </div>
-        </div>
-
-        <div className="pt-8 border-t border-black/5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h3 className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-black/40">Reference Sources</h3>
-              <p className="text-[10px] text-black/30">Verified across {item.sources.length} trusted Nigerian news outlets</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {item.sources.map((source, idx) => (
-                <a 
-                  key={idx}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={source.name}
-                  className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all group border border-black/5"
-                >
-                  <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                    <Globe size={12} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-tighter leading-none">{source.platform || 'Verified Source'}</span>
-                    <span className="text-[8px] text-black/40 font-medium truncate max-w-[120px]">{source.name}</span>
-                  </div>
-                  <div className="ml-1 px-1.5 py-0.5 bg-emerald-50 rounded-md border border-emerald-100">
-                    <span className="text-[9px] font-black text-emerald-600">
-                      {source.reliabilityScore}%
-                    </span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
