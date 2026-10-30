@@ -199,7 +199,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span>Coverage Across All 36 States &amp; Verified Global Desks · Live 24/7</span>
+          <span>Coverage Across All States &amp; Verified Global Desks</span>
         </motion.div>
 
         {/* Main Headline */}
@@ -251,7 +251,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             <div className="text-xs text-neutral-400 mt-1">24–48h newsroom recency radar</div>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-400">12:00 AM WAT</div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-400">24Hrs Quota Reset</div>
             <div className="text-xs text-neutral-400 mt-1">Automated midnight Nigeria reset</div>
           </div>
           <div>
@@ -291,7 +291,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             {/* Topic Sample Selector Bar */}
             <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
               <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-neutral-400 mr-1 shrink-0">
-                Live Sample:
+                 Demo:
               </span>
               {PIPELINE_SAMPLES.map((sample, idx) => (
                 <button
@@ -480,7 +480,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             </div>
             <h3 className="text-lg font-bold text-white">Duplicate Topic Radar</h3>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              Cross-references recent 24–48h database coverage. Alerts you if a story is already written so you can view existing coverage with 0 quota deducted.
+              Cross-references recent 24–48h coverage. Alerts you if a story is already written so you can view existing coverage with 0 quota deducted.
             </p>
           </div>
 
@@ -491,7 +491,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             </div>
             <h3 className="text-lg font-bold text-white">Midnight WAT Reset</h3>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              Anchored strictly to 12:00 AM West Africa Time (Africa/Lagos). Daily generation quotas roll over automatically without requiring database unlock requests.
+              Anchored strictly to 12:00 AM West Africa Time (Africa/Lagos). Daily generation quotas roll over automatically without requiring unlock requests.
             </p>
           </div>
 
@@ -511,7 +511,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             <div className="w-12 h-12 rounded-2xl bg-rose-400/10 text-rose-400 flex items-center justify-center">
               <Bug size={24} />
             </div>
-            <h3 className="text-lg font-bold text-white">Bug Ant Hunter Desk</h3>
+            <h3 className="text-lg font-bold text-white">Bug Hunter Desk</h3>
             <p className="text-xs text-neutral-400 leading-relaxed">
               Draggable, interactive bug mascot with instant hide-and-seek mechanics. Users can attach evidence screenshots delivered directly to our engineering email.
             </p>
