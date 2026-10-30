@@ -550,7 +550,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             </button>
             <button
               onClick={onSignIn}
-              className="px-6 py-4 bg-black/10 hover:bg-black/20 text-black font-bold text-sm rounded-2xl transition-all cursor-pointer"
+              className="px-6 py-4 bg-black/70 hover:bg-black/20 text-yellow border font-bold text-sm rounded-2xl transition-all cursor-pointer"
             >
               Existing Member? Sign In
             </button>
