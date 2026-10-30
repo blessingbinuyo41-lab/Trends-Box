@@ -35,7 +35,7 @@ export const AgentEngineIllustration = memo(function AgentEngineIllustration() {
             </span>
           </div>
           <span className="text-[10px] font-mono text-amber-400/90 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
-            Engine v2.4 Live
+            Engine v2.4
           </span>
         </div>
 
