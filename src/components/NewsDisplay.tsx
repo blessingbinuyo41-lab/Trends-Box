@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { GenerationRecord, NewsSource } from '../types';
 import { generateEditorialCover, convertBlogToSocial } from '../lib/editorialCover';
+import { getDirectArticleLink, detectPlatform } from '../lib/sourceHelper';
 
 export function extractSocialData(item: GenerationRecord): {
   headline: string;
@@ -171,15 +172,17 @@ export const NewsDisplay = memo(function NewsDisplay({
         </div>
       </div>
 
-      {/* Headline-Matched Cover Image */}
+      {/* Authentic Cover Image (Clean & Unobstructed, No Duplicate Title Overlay) */}
       {(() => {
         const coverSrc = item.imageUrl || generateEditorialCover(item.title, item.category);
+        const isSvgCover = coverSrc.startsWith('data:image/svg+xml');
+
         return (
-          <div className="aspect-[21/9] w-full overflow-hidden bg-neutral-950 relative">
+          <div className="aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden bg-neutral-950 relative group">
             <img 
               src={coverSrc} 
               alt={item.title} 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.01]"
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={(e) => {
@@ -191,21 +194,16 @@ export const NewsDisplay = memo(function NewsDisplay({
                 }
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end p-6 md:p-8">
-              <div className="space-y-2 max-w-3xl">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 bg-white text-black text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-md shadow-xs">
-                    {item.category}
-                  </span>
-                  <span className="px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-white text-[9px] md:text-[10px] font-bold uppercase tracking-widest rounded-md border border-white/10">
-                    {currentFormat === 'social' ? 'Social News Format' : 'Full Editorial'}
-                  </span>
-                </div>
-                <h1 className="text-xl md:text-3xl font-bold text-white tracking-tight leading-tight drop-shadow-md">
-                  {currentFormat === 'social' ? socialData.headline : item.title}
-                </h1>
+
+            {/* Subtle, unobtrusive press photo badge on authentic photos without any duplicate title or obscuring overlays */}
+            {!isSvgCover && (
+              <div className="absolute bottom-3 right-3 pointer-events-none">
+                <span className="px-2.5 py-1 bg-black/75 backdrop-blur-md text-white/90 text-[10px] font-semibold tracking-wide rounded-md border border-white/10 shadow-sm flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Verified Press Photo
+                </span>
               </div>
-            </div>
+            )}
           </div>
         );
       })()}
@@ -353,7 +351,25 @@ export const NewsDisplay = memo(function NewsDisplay({
               transition={{ duration: 0.25 }}
               className="space-y-6"
             >
-              <p className="text-lg md:text-xl text-black/70 italic font-serif leading-relaxed border-l-4 border-black/10 pl-6">
+              {/* Editorial Title & Category Metadata Header */}
+              <div className="space-y-3 pb-6 border-b border-black/5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-0.5 bg-black text-white text-[10px] md:text-[11px] font-black uppercase tracking-wider rounded-md shadow-xs">
+                    {item.category}
+                  </span>
+                  <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] md:text-[11px] font-bold uppercase tracking-wider rounded-md border border-black/5">
+                    Full Editorial
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-medium ml-auto">
+                    {new Date(item.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-neutral-950 tracking-tight leading-tight">
+                  {item.title}
+                </h1>
+              </div>
+
+              <p className="text-lg md:text-xl text-black/70 italic font-serif leading-relaxed border-l-4 border-black/20 pl-6">
                 {item.excerpt}
               </p>
 
@@ -372,29 +388,43 @@ export const NewsDisplay = memo(function NewsDisplay({
               <p className="text-[10px] text-black/30">Verified across {item.sources?.length || 0} trusted Nigerian news outlets</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {item.sources?.map((source: NewsSource, idx: number) => (
-                <a 
-                  key={idx}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={source.name}
-                  className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all group border border-black/5"
-                >
-                  <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                    <Globe size={12} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-tighter leading-none">{source.platform || 'Verified Source'}</span>
-                    <span className="text-[8px] text-black/40 font-medium truncate max-w-[120px]">{source.name}</span>
-                  </div>
-                  <div className="ml-1 px-1.5 py-0.5 bg-emerald-50 rounded-md border border-emerald-100">
-                    <span className="text-[9px] font-black text-emerald-600">
-                      {source.reliabilityScore}%
-                    </span>
-                  </div>
-                </a>
-              ))}
+              {item.sources?.map((source: NewsSource, idx: number) => {
+                const verifiedUrl = getDirectArticleLink(source, item.title);
+                const platformMeta = detectPlatform(source.url || '');
+                const platformName = source.platform || platformMeta.platform;
+                const score = source.reliabilityScore || platformMeta.reliabilityScore;
+
+                return (
+                  <a 
+                    key={idx}
+                    href={verifiedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Read original verified article on ${platformName}: ${source.name}`}
+                    className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl hover:shadow-md hover:-translate-y-0.5 transition-all group border border-black/5 hover:border-black/20"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                      <Globe size={12} />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter leading-none group-hover:text-black">
+                          {platformName}
+                        </span>
+                        <ExternalLink size={10} className="text-black/30 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                      <span className="text-[8px] text-black/40 font-medium truncate max-w-[130px] group-hover:text-black/60">
+                        {source.name}
+                      </span>
+                    </div>
+                    <div className="ml-1 px-1.5 py-0.5 bg-emerald-50 rounded-md border border-emerald-100 shrink-0">
+                      <span className="text-[9px] font-black text-emerald-600">
+                        {score}%
+                      </span>
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>

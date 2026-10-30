@@ -11,23 +11,15 @@ import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
 import ConfirmationModal from './components/ConfirmationModal';
 import DailyLimitModal from './components/DailyLimitModal';
+import BugAntMascot from './components/BugAntMascot';
+import BugReportModal from './components/BugReportModal';
 import { NewsDisplay } from './components/NewsDisplay';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
 import { generateEditorialCover, convertBlogToSocial } from './lib/editorialCover';
+import { DAILY_LIMIT, getLocalUsageCount, incrementUsageCount, syncUsageWithServer, getNigeriaDateKey } from './lib/quota';
 
 // Safe access to process.env for production builds
-const getApiKey = () => {
-  try {
-    // Check both process.env (injected by Vite define) and import.meta.env
-    const key = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
-    return key.trim();
-  } catch {
-    return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-  }
-};
-
-const DAILY_LIMIT = 10;
 
 interface UsageBadgeProps {
   count: number;
@@ -130,6 +122,7 @@ export default function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
   const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -150,12 +143,44 @@ export default function App() {
   useEffect(() => {
     if (user) {
       fetchHistory();
-      fetchUsage();
+      // Instantly load local usage for today (Nigeria Time) so user is never locked out
+      const current = getLocalUsageCount(user.id);
+      setUsageCount(current);
+
+      // Non-blocking background sync with server
+      syncUsageWithServer(user.id).then(cnt => {
+        setUsageCount(cnt);
+      });
     } else {
       setHistory([]);
       setDisplayedHistory([]);
-      setUsageCount(0);
+      const guestUsage = getLocalUsageCount(null);
+      setUsageCount(guestUsage);
     }
+  }, [user]);
+
+  // Automatic midnight rollover listener: constantly monitor Nigeria time (12:00 AM WAT)
+  // to instantly unlock the daily limit without requiring a database query or hard reload
+  useEffect(() => {
+    const checkMidnightRollover = () => {
+      const current = getLocalUsageCount(user?.id);
+      setUsageCount(prev => {
+        // If current count is 0 but state still had > 0, Nigeria midnight just passed!
+        if (current === 0 && prev > 0) {
+          setIsLimitModalOpen(false);
+          return 0;
+        }
+        return current;
+      });
+    };
+
+    const interval = setInterval(checkMidnightRollover, 5000);
+    window.addEventListener('focus', checkMidnightRollover);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', checkMidnightRollover);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -193,23 +218,10 @@ export default function App() {
   };
 
   const fetchUsage = async () => {
-    if (!user) return;
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('usage')
-        .select('count')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .maybeSingle();
-
-      if (error) throw error;
-      setUsageCount(data?.count || 0);
-    } catch (err) {
-      console.error('Supabase usage fetch failed', err);
-      const today = new Date().toISOString().split('T')[0];
-      const localUsage = JSON.parse(localStorage.getItem('trendsbox_usage') || '{}');
-      setUsageCount(localUsage[today] || 0);
+    const local = getLocalUsageCount(user?.id);
+    setUsageCount(local);
+    if (user?.id) {
+      syncUsageWithServer(user.id).then(cnt => setUsageCount(cnt));
     }
   };
 
@@ -245,7 +257,9 @@ export default function App() {
     }
   };
   const handleGenerate = async () => {
-    if (usageCount >= DAILY_LIMIT) {
+    const freshCount = getLocalUsageCount(user?.id);
+    if (freshCount >= DAILY_LIMIT) {
+      setUsageCount(freshCount);
       setIsLimitModalOpen(true);
       return;
     }
@@ -331,28 +345,6 @@ export default function App() {
             .insert([dbRecord]);
           
           if (historyError) throw historyError;
-
-          const today = new Date().toISOString().split('T')[0];
-          
-          // Manual Upsert for Usage
-          const { data: usageData } = await supabase
-            .from('usage')
-            .select('count')
-            .eq('user_id', user.id)
-            .eq('date', today)
-            .maybeSingle();
-          
-          const currentCount = usageData?.count || 0;
-
-          const { error: usageUpsertError } = await supabase
-            .from('usage')
-            .upsert({ 
-              user_id: user.id, 
-              date: today, 
-              count: currentCount + 1 
-            }, { onConflict: 'user_id,date' });
-
-          if (usageUpsertError) throw usageUpsertError;
         }
       } catch (saveErr) {
         console.error('Supabase save failed', saveErr);
@@ -374,13 +366,13 @@ export default function App() {
       
       // Update local state
       setHistory(prev => [uiRecord, ...prev]);
-      setUsageCount(prev => {
-        const next = prev + 1;
-        if (next >= DAILY_LIMIT) {
-          setTimeout(() => setIsLimitModalOpen(true), 1200);
-        }
-        return next;
-      });
+
+      // Safely increment daily usage anchored to 12:00 AM Nigeria local time
+      const nextUsage = await incrementUsageCount(user?.id);
+      setUsageCount(nextUsage);
+      if (nextUsage >= DAILY_LIMIT) {
+        setTimeout(() => setIsLimitModalOpen(true), 1200);
+      }
     } catch (err: any) {
       console.error('Generation failed:', err);
       if (err.message === 'API_KEY_MISSING') {
@@ -1018,6 +1010,18 @@ export default function App() {
         }}
         currentUsage={usageCount}
         maxLimit={DAILY_LIMIT}
+        onResetQuota={() => setUsageCount(0)}
+      />
+
+      {/* Interactive Bug Ant Mascot */}
+      <BugAntMascot onOpenReport={() => setIsBugReportOpen(true)} />
+
+      {/* Bug Report Floating Modal */}
+      <BugReportModal
+        isOpen={isBugReportOpen}
+        onClose={() => setIsBugReportOpen(false)}
+        userEmail={user?.email || ''}
+        userName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
       />
     </div>
   );

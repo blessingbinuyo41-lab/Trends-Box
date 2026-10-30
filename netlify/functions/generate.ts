@@ -133,16 +133,183 @@ export default async (req: Request) => {
     const currentCategory = category || 'General';
     const isSocial = genType === 'social';
 
+    // Helper: Verify if a URL points directly to an individual news article
+    const isDirectArticleUrl = (urlStr: string): boolean => {
+      if (!urlStr || typeof urlStr !== 'string') return false;
+      if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return false;
+
+      try {
+        const url = new URL(urlStr);
+        const path = url.pathname.replace(/\/+$/, '');
+        if (!path || path === '' || path === '/') return false;
+
+        const nonArticlePatterns = [
+          /^\/(topics?|category|categories|tag|tags|all-posts|author|authors|archives?|feed|search|section|sections|hub|channels?)(\/|$)/i,
+          /^\/(politics|business|entertainment|metro|sports|news|opinion|opinions|editorial|columns?|features?|headline|headlines|live|videos?|photos?|trending|latest|latest-news|breaking-news|top-stories|hot-news|all-news|special-reports|lifestyle)(\/?)$/i,
+          /\/(category|categories|topics?|tags?|all-posts|section|sections)\//i,
+          /\/page\/\d+/i,
+          /\/wp-content\//i,
+          /\/about(-us)?\/?$/i,
+          /\/contact(-us)?\/?$/i,
+          /\/privacy(-policy)?\/?$/i,
+          /\/terms(-of-service)?\/?$/i
+        ];
+        for (const pat of nonArticlePatterns) {
+          if (pat.test(path)) return false;
+        }
+
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length === 0) return false;
+
+        const host = url.hostname.replace('www.', '').toLowerCase();
+        const lastSegment = segments[segments.length - 1];
+
+        // Premium Times: .../news/.../12345-slug.html
+        if (host.includes('premiumtimesng.com')) {
+          return (lastSegment.endsWith('.html') || lastSegment.endsWith('.htm')) && /\d+/.test(lastSegment);
+        }
+
+        // Vanguard: /202X/MM/...
+        if (host.includes('vanguardngr.com')) {
+          return segments.some(s => /^202\d$/.test(s)) && segments.length >= 3;
+        }
+
+        // Daily Post: /202X/MM/DD/...
+        if (host.includes('dailypost.ng')) {
+          return segments.some(s => /^202\d$/.test(s)) && segments.length >= 3;
+        }
+
+        // The Punch, TheCable, The Nation, Guardian NG, ThisDay, etc.
+        const hyphenCount = (lastSegment.match(/-/g) || []).length;
+        const hasArticleSlug = hyphenCount >= 2 && lastSegment.length >= 16;
+        const hasArticleExt = lastSegment.endsWith('.html') || lastSegment.endsWith('.php');
+        const hasArticleDate = segments.some(s => /^202\d$/.test(s));
+
+        return hasArticleSlug || hasArticleExt || hasArticleDate;
+      } catch {
+        return false;
+      }
+    };
+
+    const cleanArticleUrl = (urlStr: string): string => {
+      try {
+        const url = new URL(urlStr);
+        url.search = '';
+        url.hash = '';
+        return url.toString().replace(/\/+$/, '/');
+      } catch {
+        return urlStr;
+      }
+    };
+
+    const detectPlatform = (urlStr: string): { platform: string; reliabilityScore: number } => {
+      try {
+        const host = new URL(urlStr).hostname.replace('www.', '').toLowerCase();
+        const outlets: Record<string, { platform: string; reliabilityScore: number }> = {
+          'punchng.com': { platform: 'The Punch', reliabilityScore: 98 },
+          'vanguardngr.com': { platform: 'Vanguard', reliabilityScore: 97 },
+          'premiumtimesng.com': { platform: 'Premium Times', reliabilityScore: 99 },
+          'dailypost.ng': { platform: 'Daily Post', reliabilityScore: 96 },
+          'thecable.ng': { platform: 'TheCable', reliabilityScore: 98 },
+          'guardian.ng': { platform: 'The Guardian NG', reliabilityScore: 97 },
+          'thenationonlineng.net': { platform: 'The Nation', reliabilityScore: 96 },
+          'thisdaylive.com': { platform: 'ThisDay', reliabilityScore: 96 },
+          'businessday.ng': { platform: 'BusinessDay', reliabilityScore: 98 },
+          'independent.ng': { platform: 'Independent', reliabilityScore: 95 }
+        };
+        for (const [d, meta] of Object.entries(outlets)) {
+          if (host.includes(d)) return meta;
+        }
+        const firstPart = host.split('.')[0];
+        return { platform: firstPart.charAt(0).toUpperCase() + firstPart.slice(1), reliabilityScore: 95 };
+      } catch {
+        return { platform: 'Verified Outlet', reliabilityScore: 95 };
+      }
+    };
+
+    const extractArticleImage = async (url: string, timeoutMs: number = 2500): Promise<string | null> => {
+      if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          }
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return null;
+        const reader = res.body?.getReader();
+        if (!reader) return null;
+        let html = '';
+        const decoder = new TextDecoder('utf-8');
+        while (html.length < 35000) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          html += decoder.decode(value, { stream: true });
+          if (html.includes('</head>')) break;
+        }
+        try { reader.cancel(); } catch (_) {}
+        const match = 
+          html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) ||
+          html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) ||
+          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+        if (match && match[1]) {
+          let candidate = match[1].trim();
+          if (candidate.startsWith('//')) candidate = 'https:' + candidate;
+          else if (candidate.startsWith('/')) {
+            const parsed = new URL(url);
+            candidate = `${parsed.protocol}//${parsed.host}${candidate}`;
+          }
+          const lower = candidate.toLowerCase();
+          const isBad = lower.includes('logo') || lower.includes('icon') || lower.includes('avatar') || lower.includes('favicon') || lower.includes('default') || lower.includes('placeholder') || lower.includes('spinner') || lower.includes('theme') || lower.includes('advert') || lower.includes('1x1') || lower.endsWith('.svg');
+          if (!isBad && (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+            return candidate;
+          }
+        }
+      } catch (_) {}
+      return null;
+    };
+
+    const buildEditorialImagePrompt = (title: string, excerpt: string = '', cat: string = 'General'): string => {
+      const text = `${title} ${excerpt} ${cat}`.toLowerCase();
+      const isTragedyOrMourning = /\b(mourn|mourns|mourning|loss|death|dead|dies|died|killed|killings|tragedy|tragic|victim|victims|burial|funeral|late|passing|collapsed|explosion|crash|accident|fatal|slain)\b/i.test(text);
+      const isCelebrityOrAward = /\b(ballon d'?or|award|awards|grammy|trophy|celebrity|artiste|singer|musician|actor|actress|burna|wizkid|davido|tiwa|asake|rema|hollywood|nollywood|concert|festival)\b/i.test(text);
+      const isPolitics = /\b(president|tinubu|governor|senate|senator|minister|ministry|federal government|fg|cabinet|assembly|court|supreme court|judiciary|police|military)\b/i.test(text);
+      const isEconomy = /\b(naira|cbn|inflation|fx|dollar|economy|budget|gdp|tax|bank|oil|nnpc|refinery|dangote|stock|market|trade)\b/i.test(text);
+      const isSports = /\b(football|soccer|super eagles|afcon|fifa|champions league|match|stadium|coach|arsenal|chelsea|epl)\b/i.test(text);
+
+      let visual = '';
+      if (isTragedyOrMourning) {
+        visual = `A deeply solemn, respectful, and dignified memorial photojournalistic composition. An empty performance stage or solemn podium illuminated by a single warm golden-amber spotlight. A vintage acoustic instrument, microphone stand, or podium in quiet silhouette, accompanied by dignified floral tributes and a soft warm memorial candle glow. Atmospheric silence, respectful news documentary depth. STRICT RULE: Absolutely NO human faces, NO portraits, NO caricatures, NO smiling people, and NO fake people.`;
+      } else if (isCelebrityOrAward) {
+        visual = `A prestigious international awards gala and entertainment photojournalism composition. A gleaming golden prestigious award trophy standing majestically on an illuminated presentation plinth, surrounded by dramatic stage spotlights, red carpet gala ambiance, and soft glittering bokeh of flashing press cameras. High fashion, cinematic editorial luxury, 8k documentary capture. STRICT REQUIREMENT: Focus on the trophy, stage, spotlights, and prestigious setting. Absolutely NO fake human faces or distorted portraits.`;
+      } else if (isPolitics) {
+        visual = `An authoritative Nigerian governmental press room and state chamber setting. An official executive briefing podium flanked by national flags and state architectural columns, equipped with official broadcast microphones, bathed in dramatic press conference lighting. Serious documentary photojournalism, majestic depth. NO fake faces or caricatures.`;
+      } else if (isEconomy) {
+        visual = `A high-level editorial financial photojournalism composition. High-tech financial charts and currency market analytical monitors in a modern African central banking headquarters or financial district skyline at twilight, sharp clean architectural lines, sophisticated corporate editorial lighting. NO fake portraits.`;
+      } else if (isSports) {
+        visual = `A dramatic sports photojournalism scene. Floodlit premier stadium grass pitch under towering arena lights, a professional match ball resting on the turf, cinematic stadium mist and dramatic evening sports atmosphere. NO fake human face portraits.`;
+      } else {
+        visual = `A premier editorial documentary photojournalism composition illustrating Nigerian news context. Authentic real-world setting, dramatic cinematic lighting, clean journalistic framing, rich textures, 8k resolution. STRICT REQUIREMENT: Absolutely NO fake human portraits or random faces. Focus on symbolic objects, professional environments, and editorial ambiance.`;
+      }
+      return `${visual} Strictly illustrating the news headline: "${title}". Editorial news photojournalism aesthetic, 16:9 widescreen, hyper-realistic, no text, no floating letters, no watermarks, no logos, no fake smiling faces.`;
+    };
+
     try {
       const searchQuery = prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")
-        ? `${currentCategory} breaking news published today ${currentDate} Nigeria Vanguard Punch Premium Times`
+        ? `${currentCategory} breaking news published today ${currentDate} Nigeria Punch Vanguard Premium Times`
         : `${prompt} latest news today ${currentDate} Nigeria`;
 
       const searchResult = await tvly.search(searchQuery, {
+        topic: "news",
         searchDepth: "advanced",
-        maxResults: 6,
+        maxResults: 16,
         includeImages: true,
-        includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "thisdaylive.com"]
+        includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "thenationonlineng.net", "thisdaylive.com"]
       });
 
       if (Array.isArray(searchResult.images) && searchResult.images.length > 0) {
@@ -151,36 +318,48 @@ export default async (req: Request) => {
           .filter((url): url is string => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://')));
       }
 
-      context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
+      // Filter strictly for direct news articles
+      let directArticles = (searchResult.results || []).filter(r => isDirectArticleUrl(r.url));
 
-      sources = searchResult.results.map((r, i) => {
-        let platform = 'Nigerian News';
+      if (directArticles.length < 3) {
         try {
-          const url = new URL(r.url);
-          const host = url.hostname.replace('www.', '').split('.')[0];
-          const platformMap: Record<string, string> = {
-            'punchng': 'The Punch',
-            'vanguardngr': 'Vanguard',
-            'dailypost': 'Daily Post',
-            'premiumtimesng': 'Premium Times',
-            'guardian': 'The Guardian NG',
-            'independent': 'Independent',
-            'thenationonlineng': 'The Nation',
-            'thisdaylive': 'ThisDay',
-            'thecable': 'TheCable'
-          };
-          platform = platformMap[host] || host.charAt(0).toUpperCase() + host.slice(1);
-        } catch {
-          platform = 'Verified Outlet';
+          const fallbackSearch = await tvly.search(`${currentCategory} Nigeria breaking news story today ${currentDate} Punch Vanguard TheCable`, {
+            topic: "news",
+            searchDepth: "advanced",
+            maxResults: 10,
+            includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng"]
+          });
+          const secondaryDirect = (fallbackSearch.results || []).filter(r => isDirectArticleUrl(r.url));
+          const seenUrls = new Set(directArticles.map(a => cleanArticleUrl(a.url)));
+          for (const item of secondaryDirect) {
+            const cleaned = cleanArticleUrl(item.url);
+            if (!seenUrls.has(cleaned)) {
+              seenUrls.add(cleaned);
+              directArticles.push(item);
+            }
+          }
+        } catch (secErr) {
+          console.warn("Secondary search skipped:", secErr);
         }
+      }
 
-        return {
-          id: i,
-          name: r.title,
-          platform,
-          url: r.url
-        };
-      });
+      const finalCandidates = directArticles.map(r => ({
+        ...r,
+        url: cleanArticleUrl(r.url),
+        meta: detectPlatform(r.url)
+      }));
+
+      context = `TODAY'S DATE: ${currentDate}\n\n` + finalCandidates.slice(0, 6).map((r, i) => {
+        return `[Source ${i}] Platform: ${r.meta.platform}\nTitle: ${r.title}\nArticle URL: ${r.url}\nContent: ${r.content}`;
+      }).join("\n\n");
+
+      sources = finalCandidates.slice(0, 6).map((r, i) => ({
+        id: i,
+        name: r.title,
+        platform: r.meta.platform,
+        url: r.url,
+        reliabilityScore: r.meta.reliabilityScore
+      }));
     } catch (searchErr) {
       console.error("Tavily search failed:", searchErr);
     }
@@ -245,16 +424,31 @@ Return ONLY a valid JSON object with the following schema:
 
     let imageUrl = "";
 
-    // 1. Try Gemini image generation if gateway credentials are present
-    if (gatewayKey) {
+    // Step 1: Extract authentic newsroom press photograph directly from the original article post
+    for (const source of filteredSources.slice(0, 3)) {
+      if (source.url && isDirectArticleUrl(source.url)) {
+        try {
+          const articlePhoto = await extractArticleImage(source.url, 2500);
+          if (articlePhoto) {
+            imageUrl = articlePhoto;
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Step 2: Context-Aware Editorial AI Image Generation with Strict Negative Constraints
+    // Never generate fake faces or hallucinated human likenesses for victims or named celebrities
+    if (!imageUrl && gatewayKey) {
       try {
         const options: any = { apiKey: gatewayKey };
         if (gatewayUrl) options.httpOptions = { baseUrl: gatewayUrl };
         const genAI = new GoogleGenAI(options);
+        const imagePrompt = buildEditorialImagePrompt(data.title, data.excerpt || "", currentCategory);
         const imgModel = await genAI.models.generateContent({
           model: 'gemini-3.1-flash-lite-image',
           contents: {
-            parts: [{ text: `A professional editorial journalistic news photograph directly illustrating the news story: "${data.title}". Context: ${data.excerpt}. Setting: Nigeria. Authentic photojournalism style, cinematic lighting, 16:9 aspect ratio, high resolution.` }]
+            parts: [{ text: imagePrompt }]
           },
           config: { imageConfig: { aspectRatio: "16:9" } }
         });
@@ -266,16 +460,30 @@ Return ONLY a valid JSON object with the following schema:
           }
         }
       } catch (imgErr) {
-        console.warn("Gemini image generation skipped, using headline cover:", imgErr);
+        console.warn("Gemini context-aware image generation skipped:", imgErr);
       }
     }
 
-    // 2. Real photo from Tavily search if available
+    // Step 3: Strictly Guarded Secondary Search Images
+    // Never take searchImages[0] blindly (blocks Tinubu or political thumbnails on entertainment/sports)
     if (!imageUrl && searchImages.length > 0) {
-      imageUrl = searchImages[0];
+      const headlineWords = data.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 4);
+      const verifiedKeywordMatch = searchImages.find(img => {
+        if (typeof img !== 'string') return false;
+        const lower = img.toLowerCase();
+        if (lower.includes('logo') || lower.includes('icon') || lower.includes('avatar') || lower.includes('advert')) return false;
+        if ((currentCategory.toLowerCase() === 'entertainment' || currentCategory.toLowerCase() === 'sports') &&
+            (lower.includes('tinubu') || lower.includes('shettima') || lower.includes('buhari') || lower.includes('atiku') || lower.includes('wike'))) {
+          return false;
+        }
+        return headlineWords.some((w: string) => lower.includes(w));
+      });
+      if (verifiedKeywordMatch) {
+        imageUrl = verifiedKeywordMatch;
+      }
     }
 
-    // 3. Fallback: Bespoke Editorial News Headline Cover
+    // Step 4: Bespoke Editorial News Headline Cover
     if (!imageUrl) {
       const topPlatform = filteredSources[0]?.platform || "Trends Box Verified";
       imageUrl = generateEditorialCover(data.title, currentCategory, currentDate, topPlatform);

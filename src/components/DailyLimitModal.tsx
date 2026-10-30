@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Clock, History, AlertTriangle, Sparkles, ArrowRight, ShieldAlert } from 'lucide-react';
+import { X, Clock, History, AlertTriangle, Sparkles, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { getTimeUntilNigeriaMidnight } from '../lib/quota';
 
 interface DailyLimitModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface DailyLimitModalProps {
   onViewHistory: () => void;
   currentUsage: number;
   maxLimit: number;
+  onResetQuota?: () => void;
 }
 
 export default function DailyLimitModal({
@@ -15,7 +17,8 @@ export default function DailyLimitModal({
   onClose,
   onViewHistory,
   currentUsage,
-  maxLimit
+  maxLimit,
+  onResetQuota
 }: DailyLimitModalProps) {
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: 0,
@@ -23,32 +26,28 @@ export default function DailyLimitModal({
     seconds: 0
   });
 
-  // Calculate live countdown until midnight (local time)
+  // Calculate live countdown strictly until 12:00 AM Nigeria Time (WAT / Africa:Lagos)
   useEffect(() => {
-    const calculateTimeUntilMidnight = () => {
-      const now = new Date();
-      const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0);
-      const diff = midnight.getTime() - now.getTime();
+    const updateCountdown = () => {
+      const countdown = getTimeUntilNigeriaMidnight();
+      setTimeLeft({
+        hours: countdown.hours,
+        minutes: countdown.minutes,
+        seconds: countdown.seconds
+      });
 
-      if (diff <= 0) {
-        return { hours: 0, minutes: 0, seconds: 0 };
+      // If midnight has arrived, trigger reset and close modal
+      if (countdown.isPastMidnight && onResetQuota) {
+        onResetQuota();
+        onClose();
       }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return { hours, minutes, seconds };
     };
 
-    setTimeLeft(calculateTimeUntilMidnight());
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeUntilMidnight());
-    }, 1000);
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [onResetQuota, onClose]);
 
   // Close on Escape key
   useEffect(() => {
@@ -134,8 +133,9 @@ export default function DailyLimitModal({
                     <Clock size={13} className="text-neutral-500" />
                     Automatic Reset In
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-100/60 px-2 py-0.5 rounded-md">
-                    Midnight 00:00
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-100/60 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    12:00 AM WAT (Nigeria Time)
                   </span>
                 </div>
 

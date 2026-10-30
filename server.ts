@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { OpenAI } from "openai";
 import { tavily } from "@tavily/core";
 import { GoogleGenAI } from "@google/genai";
+import { extractArticleImage, buildEditorialImagePrompt } from "./src/lib/articleImageHelper";
 
 dotenv.config();
 
@@ -147,17 +148,112 @@ async function startServer() {
       const currentCategory = category || 'General';
       const isSocial = genType === 'social';
 
-      // 1. Search latest breaking Nigerian news with image extraction enabled
+      // Helper: Verify if a URL points directly to an individual news article (not category, tag, archive, or homepage)
+      const isDirectArticleUrl = (urlStr: string): boolean => {
+        if (!urlStr || typeof urlStr !== 'string') return false;
+        if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return false;
+
+        try {
+          const url = new URL(urlStr);
+          const path = url.pathname.replace(/\/+$/, '');
+          if (!path || path === '' || path === '/') return false;
+
+          const nonArticlePatterns = [
+            /^\/(topics?|category|categories|tag|tags|all-posts|author|authors|archives?|feed|search|section|sections|hub|channels?)(\/|$)/i,
+            /^\/(politics|business|entertainment|metro|sports|news|opinion|opinions|editorial|columns?|features?|headline|headlines|live|videos?|photos?|trending|latest|latest-news|breaking-news|top-stories|hot-news|all-news|special-reports|lifestyle)(\/?)$/i,
+            /\/(category|categories|topics?|tags?|all-posts|section|sections)\//i,
+            /\/page\/\d+/i,
+            /\/wp-content\//i,
+            /\/about(-us)?\/?$/i,
+            /\/contact(-us)?\/?$/i,
+            /\/privacy(-policy)?\/?$/i,
+            /\/terms(-of-service)?\/?$/i
+          ];
+          for (const pat of nonArticlePatterns) {
+            if (pat.test(path)) return false;
+          }
+
+          const segments = path.split('/').filter(Boolean);
+          if (segments.length === 0) return false;
+
+          const host = url.hostname.replace('www.', '').toLowerCase();
+          const lastSegment = segments[segments.length - 1];
+
+          // Premium Times: .../news/.../12345-slug.html
+          if (host.includes('premiumtimesng.com')) {
+            return (lastSegment.endsWith('.html') || lastSegment.endsWith('.htm')) && /\d+/.test(lastSegment);
+          }
+
+          // Vanguard: /202X/MM/...
+          if (host.includes('vanguardngr.com')) {
+            return segments.some(s => /^202\d$/.test(s)) && segments.length >= 3;
+          }
+
+          // Daily Post: /202X/MM/DD/...
+          if (host.includes('dailypost.ng')) {
+            return segments.some(s => /^202\d$/.test(s)) && segments.length >= 3;
+          }
+
+          // The Punch, TheCable, The Nation, Guardian NG, ThisDay, etc.
+          const hyphenCount = (lastSegment.match(/-/g) || []).length;
+          const hasArticleSlug = hyphenCount >= 2 && lastSegment.length >= 16;
+          const hasArticleExt = lastSegment.endsWith('.html') || lastSegment.endsWith('.php');
+          const hasArticleDate = segments.some(s => /^202\d$/.test(s));
+
+          return hasArticleSlug || hasArticleExt || hasArticleDate;
+        } catch {
+          return false;
+        }
+      };
+
+      const cleanArticleUrl = (urlStr: string): string => {
+        try {
+          const url = new URL(urlStr);
+          url.search = '';
+          url.hash = '';
+          return url.toString().replace(/\/+$/, '/');
+        } catch {
+          return urlStr;
+        }
+      };
+
+      const detectPlatform = (urlStr: string): { platform: string; reliabilityScore: number } => {
+        try {
+          const host = new URL(urlStr).hostname.replace('www.', '').toLowerCase();
+          const outlets: Record<string, { platform: string; reliabilityScore: number }> = {
+            'punchng.com': { platform: 'The Punch', reliabilityScore: 98 },
+            'vanguardngr.com': { platform: 'Vanguard', reliabilityScore: 97 },
+            'premiumtimesng.com': { platform: 'Premium Times', reliabilityScore: 99 },
+            'dailypost.ng': { platform: 'Daily Post', reliabilityScore: 96 },
+            'thecable.ng': { platform: 'TheCable', reliabilityScore: 98 },
+            'guardian.ng': { platform: 'The Guardian NG', reliabilityScore: 97 },
+            'thenationonlineng.net': { platform: 'The Nation', reliabilityScore: 96 },
+            'thisdaylive.com': { platform: 'ThisDay', reliabilityScore: 96 },
+            'businessday.ng': { platform: 'BusinessDay', reliabilityScore: 98 },
+            'independent.ng': { platform: 'Independent', reliabilityScore: 95 }
+          };
+          for (const [d, meta] of Object.entries(outlets)) {
+            if (host.includes(d)) return meta;
+          }
+          const firstPart = host.split('.')[0];
+          return { platform: firstPart.charAt(0).toUpperCase() + firstPart.slice(1), reliabilityScore: 95 };
+        } catch {
+          return { platform: 'Verified Outlet', reliabilityScore: 95 };
+        }
+      };
+
+      // 1. Search latest breaking Nigerian news with topic: "news" and filter strictly for direct articles
       try {
         const searchQuery = prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")
-          ? `${prompt} breaking news published today ${currentDate} Nigeria`
+          ? `${currentCategory} breaking news published today ${currentDate} Nigeria Punch Vanguard Premium Times`
           : `${prompt} latest news today ${currentDate} Nigeria`;
 
         const searchResult = await tvly.search(searchQuery, {
+          topic: "news",
           searchDepth: "advanced",
-          maxResults: 5,
+          maxResults: 16,
           includeImages: true,
-          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng"]
+          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "thenationonlineng.net", "thisdaylive.com"]
         });
 
         if (Array.isArray(searchResult.images) && searchResult.images.length > 0) {
@@ -166,30 +262,50 @@ async function startServer() {
             .filter((url): url is string => typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://')));
         }
 
-        context = `TODAY'S DATE: ${currentDate}\n\n` + searchResult.results.map((r, i) => `[Source ${i}] Title: ${r.title}\nContent: ${r.content}`).join("\n\n");
+        // Keep strictly direct article posts (exclude homepages, section archives, tag pages)
+        let directArticles = (searchResult.results || []).filter(r => isDirectArticleUrl(r.url));
 
-        sources = searchResult.results.map((r, i) => {
-          const url = new URL(r.url);
-          let platform = url.hostname.replace('www.', '').split('.')[0];
+        // If fewer than 3 direct articles, run a targeted fallback search specifically for articles
+        if (directArticles.length < 3) {
+          try {
+            const fallbackSearch = await tvly.search(`${currentCategory} Nigeria breaking news story today ${currentDate} Punch Vanguard TheCable`, {
+              topic: "news",
+              searchDepth: "advanced",
+              maxResults: 10,
+              includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng"]
+            });
+            const secondaryDirect = (fallbackSearch.results || []).filter(r => isDirectArticleUrl(r.url));
+            const seenUrls = new Set(directArticles.map(a => cleanArticleUrl(a.url)));
+            for (const item of secondaryDirect) {
+              const cleaned = cleanArticleUrl(item.url);
+              if (!seenUrls.has(cleaned)) {
+                seenUrls.add(cleaned);
+                directArticles.push(item);
+              }
+            }
+          } catch (secErr) {
+            console.warn("Secondary search skipped:", secErr);
+          }
+        }
 
-          const platformMap: Record<string, string> = {
-            'punchng': 'The Punch',
-            'vanguardngr': 'Vanguard',
-            'dailypost': 'Daily Post',
-            'premiumtimesng': 'Premium Times',
-            'guardian': 'The Guardian NG',
-            'independent': 'Independent',
-            'thenationonlineng': 'The Nation',
-            'thisdaylive': 'ThisDay'
-          };
+        // Clean all URLs to guarantee direct navigation without tracking parameters
+        const finalCandidates = directArticles.map(r => ({
+          ...r,
+          url: cleanArticleUrl(r.url),
+          meta: detectPlatform(r.url)
+        }));
 
-          return {
-            id: i,
-            name: r.title,
-            platform: platformMap[platform] || platform.charAt(0).toUpperCase() + platform.slice(1),
-            url: r.url
-          };
-        });
+        context = `TODAY'S DATE: ${currentDate}\n\n` + finalCandidates.slice(0, 6).map((r, i) => {
+          return `[Source ${i}] Platform: ${r.meta.platform}\nTitle: ${r.title}\nArticle URL: ${r.url}\nContent: ${r.content}`;
+        }).join("\n\n");
+
+        sources = finalCandidates.slice(0, 6).map((r, i) => ({
+          id: i,
+          name: r.title,
+          platform: r.meta.platform,
+          url: r.url,
+          reliabilityScore: r.meta.reliabilityScore
+        }));
       } catch (e) {
         console.error("Local search failed:", e);
       }
@@ -264,12 +380,38 @@ Return ONLY a valid JSON object with the following fields:
         filteredSources = [sources[0]];
       }
 
-      // 3. Headline-Matched Cover Image Generation (Never random picsum photos!)
+      // 3. Context-Aware Headline-Matched Cover Image Engine
+      // Solves:
+      // A) Mismatched political figures on entertainment/sports (e.g. Tinubu on Burna Boy)
+      // B) Fake hallucinated faces/caricatures for deceased ministers, victims, or celebrities (e.g. random smiling woman for Toluwanisings)
       let imageUrl = "";
 
-      // Option A: Gemini image generation if valid API key is present
+      // Step 1: Extract authentic newsroom press photograph directly from the original article post
+      // Journalists publish the genuine photo of Burna Boy or the memorial photo of Toluwanisings in og:image
+      for (const source of filteredSources.slice(0, 3)) {
+        if (source.url && isDirectArticleUrl(source.url)) {
+          try {
+            const articlePhoto = await extractArticleImage(source.url, 2500);
+            if (articlePhoto) {
+              imageUrl = articlePhoto;
+              break;
+            }
+          } catch (e) {
+            console.warn("Direct article photo extraction skipped for:", source.url, e);
+          }
+        }
+      }
+
+      // Step 2: Context-Aware Editorial AI Image Generation (with Strict Negative Constraints)
+      // If no authentic newsroom photo could be retrieved directly:
+      // We prompt Gemini using buildEditorialImagePrompt.
+      // CRITICAL JOURNALISM CONSTRAINTS:
+      // If the headline is about a victim, tragedy, deceased person (like Toluwanisings), or specific celebrity (like Burna Boy):
+      // - Absolutely NO fake faces, smiling people, or hallucinated human likenesses!
+      // - For tributes/mourning: Dignified memorial warm amber spotlight on acoustic instruments, microphone stand, candles & flowers.
+      // - For awards: Gleaming golden award trophy, red carpet gala stage lights, camera flashes.
       const trimmedGeminiKey = (geminiKey || "").trim();
-      if (trimmedGeminiKey && trimmedGeminiKey.length > 10 && trimmedGeminiKey !== "undefined" && trimmedGeminiKey !== "placeholder") {
+      if (!imageUrl && trimmedGeminiKey && trimmedGeminiKey.length > 10 && trimmedGeminiKey !== "undefined" && trimmedGeminiKey !== "placeholder") {
         try {
           const genAI = new GoogleGenAI({ 
             apiKey: trimmedGeminiKey,
@@ -279,10 +421,13 @@ Return ONLY a valid JSON object with the following fields:
               }
             }
           });
+
+          const { prompt: imagePrompt } = buildEditorialImagePrompt(data.title, data.excerpt || "", currentCategory);
+
           const imgModel = await genAI.models.generateContent({
             model: 'gemini-3.1-flash-lite-image',
             contents: {
-              parts: [{ text: `A high-end editorial digital news banner strictly for the news headline: "${data.title}". Nigerian news photojournalism style, sophisticated typography-friendly composition, cinematic lighting, 8k resolution, professional branding.` }]
+              parts: [{ text: imagePrompt }]
             },
             config: { imageConfig: { aspectRatio: "16:9" } }
           });
@@ -294,19 +439,33 @@ Return ONLY a valid JSON object with the following fields:
             }
           }
         } catch (imgErr) {
-          console.warn("Gemini image generation skipped:", imgErr);
+          console.warn("Gemini context-aware image generation skipped:", imgErr);
         }
       }
 
-      // Option B: Real photo from the searched news article if Tavily extracted one
+      // Step 3: Strictly Guarded Secondary Search Images
+      // NEVER blindly take searchImages[0] (which caused President Tinubu to show on Burna Boy's Ballon d'Or story!)
+      // ONLY accept an image from Tavily search results if its URL specifically matches the news subject's name or keywords.
       if (!imageUrl && searchImages.length > 0) {
-        const validPhoto = searchImages.find(img => typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://')) && !img.includes('logo') && !img.includes('icon'));
-        if (validPhoto) {
-          imageUrl = validPhoto;
+        const headlineWords = data.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length >= 4);
+        const verifiedKeywordMatch = searchImages.find(img => {
+          if (typeof img !== 'string') return false;
+          const lower = img.toLowerCase();
+          if (lower.includes('logo') || lower.includes('icon') || lower.includes('avatar') || lower.includes('advert')) return false;
+          // Reject photos of known political figures if the article is about sports or entertainment
+          if ((currentCategory.toLowerCase() === 'entertainment' || currentCategory.toLowerCase() === 'sports') &&
+              (lower.includes('tinubu') || lower.includes('shettima') || lower.includes('buhari') || lower.includes('atiku') || lower.includes('wike'))) {
+            return false;
+          }
+          return headlineWords.some((w: string) => lower.includes(w));
+        });
+        if (verifiedKeywordMatch) {
+          imageUrl = verifiedKeywordMatch;
         }
       }
 
-      // Option C: Bespoke Editorial News Headline Cover (Guaranteed to match the exact news headline!)
+      // Step 4: Bespoke Editorial News Headline Cover
+      // Guaranteed 100% matched to the headline, branded, zero wrong faces, zero hallucinations.
       if (!imageUrl) {
         const topPlatform = filteredSources[0]?.platform || "Trends Box Verified";
         imageUrl = generateEditorialCover(data.title, currentCategory, currentDate, topPlatform);
