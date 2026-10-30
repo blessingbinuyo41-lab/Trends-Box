@@ -312,7 +312,10 @@ async function startServer() {
 
       // Build duplicate avoidance instruction
       const recentTitlesList = Array.isArray(recentTitles) && recentTitles.length > 0
-        ? `\n\n      DUPLICATE AVOIDANCE: The user has already generated content with these titles. You MUST choose a DIFFERENT story/topic:\n${recentTitles.map((t: string) => `      - "${t}"`).join('\n')}`
+        ? `\n\n      DUPLICATE TOPIC AVOIDANCE (CRITICAL):
+      Articles have already been generated recently covering these specific headlines/subjects:
+${recentTitles.slice(0, 30).map((t: string) => `      - "${t}"`).join('\n')}
+      You MUST NOT write about the exact same story or event as the titles listed above! Instead, select a DIFFERENT breaking news story or focus on an entirely distinct, fresh development from the search context to ensure variety and prevent duplicate generation.`
         : '';
 
       // 2. Upgraded Reasoning Algorithm Engine

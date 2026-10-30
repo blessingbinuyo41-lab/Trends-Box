@@ -1,125 +1,157 @@
-# Interactive Bug Ant Support & Issue Reporter
+# Duplicate Topic Detection & Anti-Spam Prevention Engine
 
-An animated, playful yet professional bug-reporting system featuring an interactive "Bug Ant" mascot that plays hide-and-seek along screen edges, combined with an animated floating modal supporting direct screenshot evidence uploads to Supabase Storage and email delivery via Formspree.
+Prevent duplicate or near-identical article generations when multiple users request trending topics (especially in automatic/general mode), protecting content originality, saving user quotas, and allowing users to view existing coverage or generate a fresh angle.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following design and architectural choices have been aligned with your preferences:
-> - **Screenshot Storage**: Screenshots (up to 2 files) will be uploaded to a dedicated Supabase Storage bucket (`bug-reports`) so direct, public/signed URLs are generated and embedded directly into the Formspree email body.
-> - **Formspree Delivery**: Built with an active Formspree submission handler that accepts your Formspree Form ID (configured via `.env` or input directly in settings), with automatic Supabase database and local storage fallback so no user report is ever lost.
-> - **Mascot Interaction**: The bug ant character docks on either the left or right edge of the screen, peeking half its body out, waving its antennae/arms to invite interaction, and can be smoothly dragged up, down, or across sides by the user.
+> The following decisions were clarified and confirmed with you in Phase 1:
+
+- **Confirmed Decision 1 (Detection Time Window)**: Scans articles generated in the **last 24 to 48 hours**, preserving fast-moving Nigerian breaking news cycles while preventing repetitive generation within the same news cycle.
+- **Confirmed Decision 2 (Matching Criteria)**: Matches **main subject keywords, key entities, and category alignment** (e.g., matching "Minimum Wage" + "Tinubu" in Politics or "Super Eagles" + "Peseiro" in Sports).
+- **Confirmed Decision 3 (Quota Conservation)**: Quota deduction **only takes place if a user performs a successful generation**. If a user chooses to view or open the existing article, zero quota is consumed. If they wave/ignore the prompt and insist on generating anyway, only 1 quota is deducted upon successful generation.
+- **Confirmed Decision 4 (Database Migration)**: A targeted Supabase SQL migration will add optimal indexes (`created_at`, `category`, `title`) to ensure lightning-fast duplicate checking across all users without slowdowns.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Provides users with a delightful, non-intrusive way to report bugs and suggest fixes. The bug ant mascot peeks from the browser bezel, reacts to cursor interactions with subtle waving gestures, and snaps smoothly to the user's preferred screen side. Clicking it opens a focused, animated modal with pre-filled account details (for signed-in users), issue categorisation, rich description textarea, and drag-and-drop screenshot attachments.
-- **Target Audience**: Trends Box Nigeria readers, editors, and creators who encounter rendering bugs, source mismatches, or layout glitches.
-- **Key Value**: Eliminates user frustration when submitting feedback by making bug reporting playful, while delivering actionable bug tickets straight to your inbox complete with device metadata and directly viewable screenshot images.
+- **What It Does**: Before or during generation (particularly when users trigger auto-generation in General or any category with no manual input), Trends Box checks the central database for existing articles covering the same core news story created within the last 24–48 hours. If a match is found, Trends Box alerts the user with an editorial alert modal:
+  - Discloses that this topic has already been covered (stating whether it was covered by another user or previously by themselves, and how many hours ago).
+  - Offers immediate 1-click access to **"View Existing Article"** (consuming 0 quota).
+  - Offers **"Generate Fresh Angle Anyway"** if the user wants an alternate perspective, different editorial tone, or updated details.
+  - In auto-mode, the AI generation prompt dynamically excludes all recently covered stories across all users, actively seeking out alternative fresh breaking news.
+- **Target Audience / Persona**: Content creators, journalists, social media managers, and readers who want diverse, non-repetitive Nigerian news coverage without wasting daily generation limits on stories already written.
+- **Key Value**: Eliminates platform spam, improves catalog quality, preserves valuable user generation quotas, and builds user trust.
 
 ---
 
-## 2. Mascot & Modal Interaction Flow
+## 2. User Experience & Visual Design
 
-### A. The Bug Ant Mascot (`BugAntMascot.tsx`)
-- **Visual Style**: Clean SVG vector ant with rounded cartoon antennae, expressive eyes, and a sleek silhouette styled to harmonize with the Trends Box dark/minimalist palette.
-- **Hide-and-Seek Peeking**:
-  - By default, peeks out 50% from the screen edge (left middle or right middle).
-  - On hover or idle pulse, the ant pops forward slightly, gives a friendly wave, and shows a playful tooltip ("Spot a bug? Click me! 🪲").
-- **Draggability**:
-  - Powered by Framer Motion drag gestures (`drag="y"` or free drag constrained to screen edges).
-  - Dragging to the right half snaps it to the right edge; dragging to the left snaps it to the left edge.
-  - Position is remembered in `localStorage` so the user's preferred docking side persists across visits.
+### Key User Flows
 
-### B. The Floating Animated Modal (`BugReportModal.tsx`)
-- **Entry / Exit**: Smooth scale-up and spring entrance using Framer Motion with backdrop blur.
-- **Form Fields**:
-  - **Reporter Name**: Full name input.
-  - **Account Email**: Auto-filled from active Supabase session (editable).
-  - **Issue Category / Subject**: Pre-set issue types (*Visual Bug / Source Error / Quota Problem / Feature Suggestion / Other*).
-  - **Description**: Textarea with character counter and helpful placeholder guidance.
-  - **Screenshot Attachments**: Max 2 images (PNG/JPG/WebP, max 5MB each) with instant thumbnail preview, remove action, and drag-and-drop support.
-- **Submission State**:
-  - Uploads images to Supabase Storage.
-  - Dispatches form data to Formspree endpoint.
-  - Celebratory completion animation ("Bug Captured! 🎯 Thank you for keeping Trends Box sharp.").
+1. **Auto-Mode / Category Trigger**:
+   - User selects a category (e.g., "Politics") and clicks "Generate Story" with no manual input.
+   - The backend checks recent articles in that category from the last 24–48 hours.
+   - Tavily search & the LLM are instructed to skip already-covered breaking headlines and pick an alternative high-priority story.
+2. **Specific / Duplicate Topic Detected**:
+   - If the detected trending story or manual input matches a story generated in the last 24–48 hours:
+     - The **"Topic Already Covered"** dialog gracefully animates into view.
+     - Displays the existing article title, author context ("Generated by another user 2 hours ago" or "Generated by you earlier today"), and source outlets.
+     - Two primary actions:
+       - **"Open Existing Coverage"** (Instantly opens the full article & social card, 0 quota used).
+       - **"Generate Fresh Angle Anyway"** (Proceeds with generation, exploring an alternative analytical angle, deducting 1 quota only upon success).
+       - **"Cancel / Change Topic"** (Dismisses the modal back to topic selection).
+3. **Deleted Article Handling**:
+   - If an earlier article was deleted from the database, it is excluded from duplicate checks, allowing new generation without impedance.
 
----
+### Editorial UI Composition (Anti-Slop Discipline)
 
-## 3. Technical Architecture & Data Flow
+In adherence to the editorial constitution:
+- **No Candy Badges or Static Pill Overload**: The duplicate alert is styled as an authoritative newsroom verification advisory with clean typography, quiet hairline dividers, and high-contrast editorial serif headings.
+- **Clear Authorship & Time Markers**: Rendered as unboxed inline metadata (`By Trends Box Community · 3 hours ago · Politics`).
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    User Browser Client                       │
-│                                                              │
-│  ┌───────────────────────┐       ┌────────────────────────┐  │
-│  │   BugAntMascot.tsx    │ ───>  │  BugReportModal.tsx    │  │
-│  │ (Draggable Edge Peek) │ Click │ (Form + 2 Screenshots) │  │
-│  └───────────────────────┘       └───────────┬────────────┘  │
-└──────────────────────────────────────────────┼───────────────┘
-                                               │
-                       ┌───────────────────────┴───────────────────────┐
-                       │                                               │
-                       ▼ 1. Upload Screenshots                         ▼ 2. Submit Report
-       ┌───────────────────────────────┐               ┌───────────────────────────────┐
-       │       Supabase Storage        │               │       Formspree Endpoint      │
-       │     Bucket: 'bug-reports'     │               │    (https://formspree.io/f/..)│
-       │                               │               │                               │
-       │ Returns direct public image   │               │ Receives:                     │
-       │ URLs for email viewing        │               │ - User Name & Email           │
-       └───────────────┬───────────────┘               │ - Issue Category & Message    │
-                       │                               │ - Clickable Screenshot Links  │
-                       │ Screenshot Links              │ - Device/Browser Diagnostics  │
-                       └──────────────────────────────>│                               │
-                                                       └───────────────┬───────────────┘
-                                                                       │
-                                                                       ▼ Direct to Inbox
-                                                       ┌───────────────────────────────┐
-                                                       │   Admin Email Notification    │
-                                                       │ (Full bug details + images)   │
-                                                       └───────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│  EDITORIAL NOTIFICATION                                           [✕]  │
+│                                                                        │
+│  This Breaking Story Has Existing Coverage                             │
+│                                                                        │
+│  "Tinubu Announces New Implementation Committee for National Minimum  │
+│   Wage Across 36 States"                                               │
+│                                                                        │
+│  Generated by another user 3 hours ago · Politics · Punch / Vanguard   │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │ 💡 You can view the full crafted article immediately without      │  │
+│  │    using your daily generation quota (0/10 used).                │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│  [ Cancel ]    [ Generate Fresh Take (1 Quota) ]    [ Read Article → ] │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Implementation Steps & Sub-tasks
+## 3. Key Product Decisions & Trade-Offs
 
-1. **Bug Ant Mascot Component (`src/components/BugAntMascot.tsx`)**:
-   - Custom SVG illustration of a friendly ant with animated waving antennae and legs.
-   - Draggable edge docking mechanism with snap-to-edge logic and local storage persistence.
-   - Peek-a-boo half-body state with hover expansion and accessible trigger for the modal.
-
-2. **Bug Report Floating Modal (`src/components/BugReportModal.tsx`)**:
-   - Animated dialog with backdrop blur and responsive layout for mobile and desktop.
-   - Controlled form state with validation for email, subject, and description.
-   - Dual-file upload area with drag-and-drop, image preview thumbnails, and file size checks.
-
-3. **Storage & Formspree Service (`src/lib/supportService.ts`)**:
-   - Helper function `uploadScreenshotToStorage(file)` to push images to Supabase Storage (with graceful base64 preview fallback if storage bucket creation is restricted).
-   - Formspree submission handler `submitBugReport(payload)` with environment variable `VITE_FORMSPREE_FORM_ID` and fallback to Supabase table `bug_reports`.
-   - Browser environment diagnostic capture (OS, viewport dimensions, current route) appended to help rapid troubleshooting.
-
-4. **Integration into App Shell (`src/App.tsx`)**:
-   - Render `BugAntMascot` globally at the root layout so it is available across all tabs (Generation, History, Results).
-   - Wire state to open and close `BugReportModal`.
-   - Pass authenticated user email to auto-fill the form.
+- **Decision 1: Subject Keyword Tokenization with Category Scoping**
+  - *Chosen Approach*: Extract significant entity stems (ignoring common stop words: "the", "in", "and", "today", "news") and calculate overlap against recent articles in the same category within the 24–48h window.
+  - *Why*: Fast, deterministic, requires zero external embedding API costs, and responds in under 15ms.
+  - *Alternative Considered*: Full vector embeddings. Rejected as overkill for breaking news headline clustering and adds needless API latency and database extension complexity.
+- **Decision 2: Two-Tier Duplicate Prevention (Pre-Search & Post-Search)**
+  - *Tier 1 (AI Context Injection)*: The backend passes the list of all recently generated titles from the database directly into the search prompt so the AI naturally chooses a *different* trending story during auto-generation.
+  - *Tier 2 (Pre-Generation Confirmation)*: If the resulting story is nonetheless an exact or near-duplicate of an existing story in the database, the confirmation dialog lets the user decide before committing quota.
+- **Decision 3: Quota Safety Guarantee**
+  - *Chosen Approach*: Quota count increment (`incrementUsageCount`) is only executed *after* a generation finishes successfully and is saved to the user's history. Viewing existing coverage never touches the quota.
 
 ---
 
-## 5. Verification & Testing Plan
+## 4. Technical Architecture & Data Strategy
 
-- **Mascot Interaction Test**:
-  - Verify dragging on desktop and touch devices.
-  - Test snapping to left and right screen edges and verifying half-body hiding.
-  - Verify waving animation on hover and periodic idle state.
-- **Modal & File Upload Test**:
-  - Test modal opening and closing (Esc key, outside click, and close button).
-  - Test attaching 1 and 2 image files; verify exceeding 2 files or non-image files are prevented.
-  - Verify image thumbnail rendering and individual delete actions.
-- **Formspree & Storage Test**:
-  - Test submission with test Formspree ID and verify payload formatting (including screenshot URLs and device info).
-  - Verify success state with animation and clean form reset.
-- **Build & Quality Check**:
-  - Run `lint_applet` (`tsc --noEmit`) to verify zero TypeScript errors.
-  - Run `compile_applet` to confirm clean production build.
+### System Architecture Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                               CLIENT                                   │
+│                                                                        │
+│  ┌──────────────────┐    Check Topic     ┌──────────────────────────┐  │
+│  │ Generation Form  │ ─────────────────> │ Duplicate Alert Modal    │  │
+│  └────────┬─────────┘                    └────────────┬─────────────┘  │
+│           │                                           │                │
+│           │ Confirmed (or Proceed Anyway)             │ Read Existing  │
+│           ▼                                           ▼                │
+│  ┌──────────────────┐                    ┌──────────────────────────┐  │
+│  │ Generation View  │ <───────────────── │ Display Existing Article │  │
+│  └──────────────────┘                    │ (0 Quota Consumed)       │  │
+│                                          └──────────────────────────┘  │
+└───────────┬───────────────────────────────────────────▲────────────────┘
+            │                                           │
+            │ POST /api/generate                        │
+            ▼                                           │
+┌───────────────────────────────────────────────┐       │
+│                  SERVER                       │       │
+│                                               │       │
+│  1. Fetch recent titles (24-48h window)       │       │
+│  2. Inject exclusion list into Tavily/LLM     │       │
+│  3. Verify headline uniqueness                │       │
+│  4. Return article payload + match metadata   │       │
+└───────────────────────┬───────────────────────┘       │
+                        │                               │
+                        ▼                               │
+┌───────────────────────────────────────────────────────┴────────────────┐
+│                        SUPABASE DATABASE                               │
+│                                                                        │
+│  Table: history                                                        │
+│  Indexes: idx_history_created_at, idx_history_category_created         │
+│  Query: SELECT id, title, user_id, category, created_at, sources       │
+│         FROM history                                                   │
+│         WHERE created_at >= NOW() - INTERVAL '48 HOURS'                │
+│         ORDER BY created_at DESC;                                      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Database Migration Details
+
+A clean, safe SQL migration script to optimize the `history` table:
+```sql
+-- 1. Index for fast 48h duplicate lookup by category and creation time
+CREATE INDEX IF NOT EXISTS idx_history_category_created 
+ON public.history (category, created_at DESC);
+
+-- 2. Index for headline text searches
+CREATE INDEX IF NOT EXISTS idx_history_title_trgm 
+ON public.history USING gin (to_tsvector('english', title));
+```
+
+### Component & File Strategy
+
+1. **`src/lib/duplicateService.ts`**:
+   - `checkDuplicateTopic(input, category, timeframeHours, currentUserId)`: Queries Supabase for matching articles in the last 24–48 hours using tokenized keyword intersection.
+   - Calculates similarity score, identifies whether it was generated by the current user or someone else, and calculates human-readable relative time.
+2. **`src/components/DuplicateTopicModal.tsx`**:
+   - Editorial modal presenting the duplicate warning, title, source preview, author tag ("You" vs "Community"), and actions: "Read Existing" vs "Generate Fresh Take".
+3. **`server.ts` & `src/App.tsx` Integration**:
+   - Update `server.ts` to query the last 48 hours of platform-wide history to inject into Tavily & LLM prompt instructions as hard exclusions.
+   - Wire `DuplicateTopicModal` into `App.tsx` generation trigger.
+   - Ensure `incrementUsageCount` only triggers after fresh generation succeeds.

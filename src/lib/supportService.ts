@@ -18,13 +18,15 @@ export interface BugReportResult {
   deliveryMethod: 'formspree' | 'supabase' | 'local';
 }
 
-const DEFAULT_FORMSPREE_ID = import.meta.env.VITE_FORMSPREE_FORM_ID || '';
+const DEFAULT_FORMSPREE_ID = import.meta.env.VITE_FORMSPREE_FORM_ID || 'mgorejbr';
 
 export function getStoredFormspreeId(): string {
   try {
-    return localStorage.getItem('trendsbox_formspree_id') || DEFAULT_FORMSPREE_ID || '';
+    const saved = localStorage.getItem('trendsbox_formspree_id');
+    if (saved && saved.trim()) return saved.trim();
+    return DEFAULT_FORMSPREE_ID;
   } catch {
-    return DEFAULT_FORMSPREE_ID || '';
+    return DEFAULT_FORMSPREE_ID;
   }
 }
 
@@ -65,22 +67,15 @@ export async function uploadScreenshotToStorage(file: File): Promise<string> {
       if (data?.publicUrl) {
         return data.publicUrl;
       }
+    } else if (uploadError) {
+      console.error('Supabase storage upload error:', uploadError.message || uploadError);
     }
   } catch (storageErr) {
-    console.warn('Supabase storage direct upload failed, trying fallback...', storageErr);
+    console.warn('Supabase storage direct upload failed:', storageErr);
   }
 
-  // Fallback: Read as base64 data URL if storage bucket is not provisioned or public
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      resolve(reader.result as string);
-    };
-    reader.onerror = () => {
-      resolve(`[Screenshot: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]`);
-    };
-    reader.readAsDataURL(file);
-  });
+  // Graceful fallback: return file summary without sending giant Base64 strings that crash Formspree
+  return `[Attached Evidence: ${file.name} (${(file.size / 1024).toFixed(1)} KB) - Saved locally]`;
 }
 
 /**
@@ -122,7 +117,8 @@ export async function submitBugReport(payload: BugReportPayload): Promise<BugRep
   // 3. Prepare Formspree Submission if ID is provided
   if (activeFormspreeId) {
     try {
-      const formspreeEndpoint = `https://formspree.io/f/${activeFormspreeId.replace(/^https:\/\/formspree\.io\/f\//, '')}`;
+      const cleanedId = activeFormspreeId.replace(/^https?:\/\/formspree\.io\/f\//, '').trim();
+      const formspreeEndpoint = `https://formspree.io/f/${cleanedId}`;
       
       const response = await fetch(formspreeEndpoint, {
         method: 'POST',

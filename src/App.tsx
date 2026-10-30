@@ -13,11 +13,13 @@ import ConfirmationModal from './components/ConfirmationModal';
 import DailyLimitModal from './components/DailyLimitModal';
 import BugAntMascot from './components/BugAntMascot';
 import BugReportModal from './components/BugReportModal';
+import DuplicateTopicModal from './components/DuplicateTopicModal';
 import { NewsDisplay } from './components/NewsDisplay';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
 import { generateEditorialCover, convertBlogToSocial } from './lib/editorialCover';
 import { DAILY_LIMIT, getLocalUsageCount, incrementUsageCount, syncUsageWithServer, getNigeriaDateKey } from './lib/quota';
+import { checkTopicDuplicate, DuplicateCheckResult, fetchRecentPlatformArticles } from './lib/duplicateService';
 
 // Safe access to process.env for production builds
 
@@ -123,6 +125,8 @@ export default function App() {
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
   const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateCheckResult | null>(null);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -256,7 +260,26 @@ export default function App() {
       setHistoryPage(prev => prev + 1);
     }
   };
+
   const handleGenerate = async () => {
+    // If user provided a manual topic, pre-check if this exact story was already covered in 24-48h
+    if (manualInput.trim()) {
+      try {
+        const dupCheck = await checkTopicDuplicate(manualInput, category, user?.id, 48);
+        if (dupCheck.isDuplicate && dupCheck.matchedRecord) {
+          setDuplicateMatch(dupCheck);
+          setDuplicateModalOpen(true);
+          return;
+        }
+      } catch (dupErr) {
+        console.warn('Pre-check duplicate skipped:', dupErr);
+      }
+    }
+
+    await executeGeneration();
+  };
+
+  const executeGeneration = async (forceBypassDuplicate: boolean = false) => {
     const freshCount = getLocalUsageCount(user?.id);
     if (freshCount >= DAILY_LIMIT) {
       setUsageCount(freshCount);
@@ -279,8 +302,15 @@ export default function App() {
         ? `Generate a ${genType} post about: ${manualInput}. Category: ${category}. Focus on Nigerian context if applicable. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`
         : `Find the latest news in ${category} from popular Nigerian sources and generate a ${genType} post. ${genType === 'social' ? 'Keep it extremely minimal: just a catchy title and 1-2 sentences of key details.' : 'Provide a full, detailed blog post with an attractive title and human-like delivery.'}`;
 
-      // Collect recent titles to avoid duplicates
-      const recentTitles = history.slice(0, 20).map(h => h.title);
+      // Collect platform-wide recent titles to avoid duplicates in AI search
+      let recentTitles = history.slice(0, 25).map(h => h.title);
+      try {
+        const platformRecent = await fetchRecentPlatformArticles(48, category);
+        const combined = Array.from(new Set([...recentTitles, ...platformRecent.map(r => r.title)]));
+        recentTitles = combined.slice(0, 30);
+      } catch (err) {
+        // Fall back to local history titles
+      }
 
       // Call Netlify Function instead of direct API
       const response = await fetch('/.netlify/functions/generate', {
@@ -300,6 +330,24 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(data.error || `Server Error (${response.status})`);
+      }
+
+      // Check if generated title matches an existing article from the last 48 hours
+      // (Unless the user previously chose "Generate Fresh Take Anyway")
+      if (!forceBypassDuplicate && data.title) {
+        try {
+          const postGenDup = await checkTopicDuplicate(data.title, category, user?.id, 48);
+          if (postGenDup.isDuplicate && postGenDup.matchedRecord) {
+            clearInterval(interval);
+            setLoading(false);
+            setProgress(0);
+            setDuplicateMatch(postGenDup);
+            setDuplicateModalOpen(true);
+            return;
+          }
+        } catch (postDupErr) {
+          console.warn('Post-gen duplicate check skipped:', postDupErr);
+        }
       }
 
       const imageUrl = data.imageUrl || generateEditorialCover(data.title, category);
@@ -1023,6 +1071,36 @@ export default function App() {
         userEmail={user?.email || ''}
         userName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
       />
+
+      {/* Duplicate Topic Detection Modal */}
+      {duplicateMatch && duplicateMatch.matchedRecord && (
+        <DuplicateTopicModal
+          isOpen={duplicateModalOpen}
+          onClose={() => {
+            setDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+          }}
+          matchedRecord={duplicateMatch.matchedRecord}
+          isCurrentUser={duplicateMatch.isCurrentUser}
+          timeAgoText={duplicateMatch.timeAgoText}
+          matchedKeywords={duplicateMatch.matchedKeywords}
+          onViewExisting={() => {
+            // View existing article without consuming any quota (0 quota used)
+            const matched = duplicateMatch.matchedRecord!;
+            setResult(matched);
+            setSelectedHistoryItem(matched);
+            setActiveTab('generate');
+            setDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+          }}
+          onProceedAnyway={() => {
+            // User insists on generating a fresh angle anyway (1 quota upon success)
+            setDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+            executeGeneration(true);
+          }}
+        />
+      )}
     </div>
   );
 }
