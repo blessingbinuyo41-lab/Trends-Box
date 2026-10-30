@@ -142,7 +142,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
       />
 
       {/* Fixed Navigation Bar (Pinned to viewport top) */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#07090E]/95 border-b border-white/10 shadow-lg shadow-black/40">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#07090E]/95">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 min-w-0">
@@ -163,7 +163,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
                 </span>
               </div>
               <p className="text-[9px] sm:text-[10px] text-neutral-400 font-medium tracking-wide truncate max-w-[160px] sm:max-w-none">
-                Verified Editorial Intelligence
+                Agentic Editorial Intelligence
               </p>
             </div>
           </div>
@@ -252,7 +252,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
           </div>
           <div>
             <div className="text-xl sm:text-2xl font-black text-emerald-400">24Hrs Quota Reset</div>
-            <div className="text-xs text-neutral-400 mt-1">Automated midnight Nigeria reset</div>
+            <div className="text-xs text-neutral-400 mt-1">Automated midnight Nigerian time reset</div>
           </div>
           <div>
             <div className="text-xl sm:text-2xl font-black text-white">Dual Output</div>
@@ -276,22 +276,18 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
         </div>
 
         {/* Interactive Device Viewport */}
-        <div className="rounded-3xl bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/10 p-3 sm:p-6 shadow-2xl backdrop-blur-2xl">
+        <div className="rounded-3xl bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/10 p-3 sm:p-6 shadow-2xl">
           {/* Top Mock Window Controls */}
           <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-rose-500/80" />
               <div className="w-3 h-3 rounded-full bg-amber-500/80" />
               <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-              <span className="ml-2 text-xs font-mono text-neutral-400 hidden sm:inline">
-                trendsbox.ng/preview
-              </span>
             </div>
 
             {/* Topic Sample Selector Bar */}
             <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-neutral-400 mr-1 shrink-0">
-                 Demo:
+                 
               </span>
               {PIPELINE_SAMPLES.map((sample, idx) => (
                 <button
@@ -299,7 +295,8 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
                   onClick={() => setSelectedSampleIndex(idx)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                     selectedSampleIndex === idx
-                      ? 'bg-white/15 text-white border border-white/20 shadow-sm'
+                      ? 'bg-white/15 text-white border bm
+                    order-white/20 shadow-sm'
                       : 'text-neutral-400 hover:text-white hover:bg-white/5 border border-transparent'
                   }`}
                 >
@@ -319,7 +316,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
                 }`}
               >
                 <FileText size={13} className="shrink-0" />
-                <span>Editorial Blog</span>
+                <span>Blog</span>
                 {activeTab === 'editorial' && (
                   <motion.div
                     layoutId="activePipelineTabPill"
@@ -337,7 +334,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
                 }`}
               >
                 <Share2 size={13} className="shrink-0" />
-                <span>Social Share</span>
+                <span>Social</span>
                 {activeTab === 'social' && (
                   <motion.div
                     layoutId="activePipelineTabPill"
