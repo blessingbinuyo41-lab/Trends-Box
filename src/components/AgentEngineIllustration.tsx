@@ -134,7 +134,6 @@ export const AgentEngineIllustration = memo(function AgentEngineIllustration() {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             <span>Zero Hallucinations · Press Photos Matched</span>
           </div>
-        </div>
       </div>
     </div>
   );
