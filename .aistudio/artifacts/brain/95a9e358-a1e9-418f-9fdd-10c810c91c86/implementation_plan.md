@@ -1,157 +1,69 @@
-# Duplicate Topic Detection & Anti-Spam Prevention Engine
+# Authentication Audit, Password Recovery, Legal Pages & Hub Watermark
 
-Prevent duplicate or near-identical article generations when multiple users request trending topics (especially in automatic/general mode), protecting content originality, saving user quotas, and allowing users to view existing coverage or generate a fresh angle.
+Audit and refine the user signup and authentication lifecycle, implement a fully working forgot/reset password flow, add accessible Privacy Policy and Terms of Service documents, and apply the brand watermark at the bottom of the application.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following decisions were clarified and confirmed with you in Phase 1:
-
-- **Confirmed Decision 1 (Detection Time Window)**: Scans articles generated in the **last 24 to 48 hours**, preserving fast-moving Nigerian breaking news cycles while preventing repetitive generation within the same news cycle.
-- **Confirmed Decision 2 (Matching Criteria)**: Matches **main subject keywords, key entities, and category alignment** (e.g., matching "Minimum Wage" + "Tinubu" in Politics or "Super Eagles" + "Peseiro" in Sports).
-- **Confirmed Decision 3 (Quota Conservation)**: Quota deduction **only takes place if a user performs a successful generation**. If a user chooses to view or open the existing article, zero quota is consumed. If they wave/ignore the prompt and insist on generating anyway, only 1 quota is deducted upon successful generation.
-- **Confirmed Decision 4 (Database Migration)**: A targeted Supabase SQL migration will add optimal indexes (`created_at`, `category`, `title`) to ensure lightning-fast duplicate checking across all users without slowdowns.
+> The following items were requested for this final polish:
+> 1. **Sign Up Flow Audit**: Ensure validation (email format, minimum password length), helpful error messages, full name field for user profile personalization, and clean transition states.
+> 2. **Working Forgot Password Flow**: Full Supabase `resetPasswordForEmail` integration with redirect handling and a clean in-app modal/view to input the new password when returning from the reset link.
+> 3. **Privacy Policy & Terms and Conditions**: Accessible via modals from both the Auth sign-up screen and the footer of the app, outlining Nigerian journalism compliance, data privacy, and usage limits.
+> 4. **Brand Watermark**: Embedded at the bottom of the app page: `With ❤️ from Binuyo Legacy Hub`.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Before or during generation (particularly when users trigger auto-generation in General or any category with no manual input), Trends Box checks the central database for existing articles covering the same core news story created within the last 24–48 hours. If a match is found, Trends Box alerts the user with an editorial alert modal:
-  - Discloses that this topic has already been covered (stating whether it was covered by another user or previously by themselves, and how many hours ago).
-  - Offers immediate 1-click access to **"View Existing Article"** (consuming 0 quota).
-  - Offers **"Generate Fresh Angle Anyway"** if the user wants an alternate perspective, different editorial tone, or updated details.
-  - In auto-mode, the AI generation prompt dynamically excludes all recently covered stories across all users, actively seeking out alternative fresh breaking news.
-- **Target Audience / Persona**: Content creators, journalists, social media managers, and readers who want diverse, non-repetitive Nigerian news coverage without wasting daily generation limits on stories already written.
-- **Key Value**: Eliminates platform spam, improves catalog quality, preserves valuable user generation quotas, and builds user trust.
+- **Sign Up Polish**: Allows users to register cleanly with Full Name, Email, and Password. Handles email confirmation scenarios gracefully, ensuring immediate clarity whether email verification is toggled on or off in Supabase.
+- **Forgot Password**: Provides an in-auth switch to "Forgot Password?". Users submit their email, receive the recovery link via Supabase Auth, and can reset their password securely.
+- **Privacy & Terms**: Authoritative, clean modal dialogs explaining user data handling, non-retention of payment data, authentic source attribution, and fair usage quotas.
+- **Footer Watermark**: An elegant, subtle brand signature honoring the creator: `With ❤️ from Binuyo Legacy Hub`, styled with high typographic restraint.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Key User Flows
-
-1. **Auto-Mode / Category Trigger**:
-   - User selects a category (e.g., "Politics") and clicks "Generate Story" with no manual input.
-   - The backend checks recent articles in that category from the last 24–48 hours.
-   - Tavily search & the LLM are instructed to skip already-covered breaking headlines and pick an alternative high-priority story.
-2. **Specific / Duplicate Topic Detected**:
-   - If the detected trending story or manual input matches a story generated in the last 24–48 hours:
-     - The **"Topic Already Covered"** dialog gracefully animates into view.
-     - Displays the existing article title, author context ("Generated by another user 2 hours ago" or "Generated by you earlier today"), and source outlets.
-     - Two primary actions:
-       - **"Open Existing Coverage"** (Instantly opens the full article & social card, 0 quota used).
-       - **"Generate Fresh Angle Anyway"** (Proceeds with generation, exploring an alternative analytical angle, deducting 1 quota only upon success).
-       - **"Cancel / Change Topic"** (Dismisses the modal back to topic selection).
-3. **Deleted Article Handling**:
-   - If an earlier article was deleted from the database, it is excluded from duplicate checks, allowing new generation without impedance.
-
-### Editorial UI Composition (Anti-Slop Discipline)
-
-In adherence to the editorial constitution:
-- **No Candy Badges or Static Pill Overload**: The duplicate alert is styled as an authoritative newsroom verification advisory with clean typography, quiet hairline dividers, and high-contrast editorial serif headings.
-- **Clear Authorship & Time Markers**: Rendered as unboxed inline metadata (`By Trends Box Community · 3 hours ago · Politics`).
-
+### Auth Flow States
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│  EDITORIAL NOTIFICATION                                           [✕]  │
-│                                                                        │
-│  This Breaking Story Has Existing Coverage                             │
-│                                                                        │
-│  "Tinubu Announces New Implementation Committee for National Minimum  │
-│   Wage Across 36 States"                                               │
-│                                                                        │
-│  Generated by another user 3 hours ago · Politics · Punch / Vanguard   │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ 💡 You can view the full crafted article immediately without      │  │
-│  │    using your daily generation quota (0/10 used).                │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                                                        │
-│  [ Cancel ]    [ Generate Fresh Take (1 Quota) ]    [ Read Article → ] │
-└────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                   Trends Box Portal                    │
+│                                                        │
+│   [ Sign In ]  |  [ Create Account ]  |  [ Forgot? ]   │
+│                                                        │
+│   • Full Name (during Sign Up)                         │
+│   • Email Address                                      │
+│   • Password (min 6 characters)                        │
+│                                                        │
+│   By continuing, you agree to our                      │
+│   [Terms of Service] and [Privacy Policy]              │
+│                                                        │
+│   [ Submit Action Button ]                             │
+└────────────────────────────────────────────────────────┘
+```
+
+### Watermark Placement
+Rendered at the bottom of both the main generation dashboard and history view:
+```
+──────────────────────────────────────────────────────────
+Trends Box Nigeria · Real-time Verified Editorial Intelligence
+With ❤️ from Binuyo Legacy Hub
 ```
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+## 3. Implementation Steps
 
-- **Decision 1: Subject Keyword Tokenization with Category Scoping**
-  - *Chosen Approach*: Extract significant entity stems (ignoring common stop words: "the", "in", "and", "today", "news") and calculate overlap against recent articles in the same category within the 24–48h window.
-  - *Why*: Fast, deterministic, requires zero external embedding API costs, and responds in under 15ms.
-  - *Alternative Considered*: Full vector embeddings. Rejected as overkill for breaking news headline clustering and adds needless API latency and database extension complexity.
-- **Decision 2: Two-Tier Duplicate Prevention (Pre-Search & Post-Search)**
-  - *Tier 1 (AI Context Injection)*: The backend passes the list of all recently generated titles from the database directly into the search prompt so the AI naturally chooses a *different* trending story during auto-generation.
-  - *Tier 2 (Pre-Generation Confirmation)*: If the resulting story is nonetheless an exact or near-duplicate of an existing story in the database, the confirmation dialog lets the user decide before committing quota.
-- **Decision 3: Quota Safety Guarantee**
-  - *Chosen Approach*: Quota count increment (`incrementUsageCount`) is only executed *after* a generation finishes successfully and is saved to the user's history. Viewing existing coverage never touches the quota.
-
----
-
-## 4. Technical Architecture & Data Strategy
-
-### System Architecture Diagram
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                               CLIENT                                   │
-│                                                                        │
-│  ┌──────────────────┐    Check Topic     ┌──────────────────────────┐  │
-│  │ Generation Form  │ ─────────────────> │ Duplicate Alert Modal    │  │
-│  └────────┬─────────┘                    └────────────┬─────────────┘  │
-│           │                                           │                │
-│           │ Confirmed (or Proceed Anyway)             │ Read Existing  │
-│           ▼                                           ▼                │
-│  ┌──────────────────┐                    ┌──────────────────────────┐  │
-│  │ Generation View  │ <───────────────── │ Display Existing Article │  │
-│  └──────────────────┘                    │ (0 Quota Consumed)       │  │
-│                                          └──────────────────────────┘  │
-└───────────┬───────────────────────────────────────────▲────────────────┘
-            │                                           │
-            │ POST /api/generate                        │
-            ▼                                           │
-┌───────────────────────────────────────────────┐       │
-│                  SERVER                       │       │
-│                                               │       │
-│  1. Fetch recent titles (24-48h window)       │       │
-│  2. Inject exclusion list into Tavily/LLM     │       │
-│  3. Verify headline uniqueness                │       │
-│  4. Return article payload + match metadata   │       │
-└───────────────────────┬───────────────────────┘       │
-                        │                               │
-                        ▼                               │
-┌───────────────────────────────────────────────────────┴────────────────┐
-│                        SUPABASE DATABASE                               │
-│                                                                        │
-│  Table: history                                                        │
-│  Indexes: idx_history_created_at, idx_history_category_created         │
-│  Query: SELECT id, title, user_id, category, created_at, sources       │
-│         FROM history                                                   │
-│         WHERE created_at >= NOW() - INTERVAL '48 HOURS'                │
-│         ORDER BY created_at DESC;                                      │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### Database Migration Details
-
-A clean, safe SQL migration script to optimize the `history` table:
-```sql
--- 1. Index for fast 48h duplicate lookup by category and creation time
-CREATE INDEX IF NOT EXISTS idx_history_category_created 
-ON public.history (category, created_at DESC);
-
--- 2. Index for headline text searches
-CREATE INDEX IF NOT EXISTS idx_history_title_trgm 
-ON public.history USING gin (to_tsvector('english', title));
-```
-
-### Component & File Strategy
-
-1. **`src/lib/duplicateService.ts`**:
-   - `checkDuplicateTopic(input, category, timeframeHours, currentUserId)`: Queries Supabase for matching articles in the last 24–48 hours using tokenized keyword intersection.
-   - Calculates similarity score, identifies whether it was generated by the current user or someone else, and calculates human-readable relative time.
-2. **`src/components/DuplicateTopicModal.tsx`**:
-   - Editorial modal presenting the duplicate warning, title, source preview, author tag ("You" vs "Community"), and actions: "Read Existing" vs "Generate Fresh Take".
-3. **`server.ts` & `src/App.tsx` Integration**:
-   - Update `server.ts` to query the last 48 hours of platform-wide history to inject into Tavily & LLM prompt instructions as hard exclusions.
-   - Wire `DuplicateTopicModal` into `App.tsx` generation trigger.
-   - Ensure `incrementUsageCount` only triggers after fresh generation succeeds.
+1. **`src/components/LegalModals.tsx`**:
+   - Create comprehensive, professional `PrivacyPolicyModal` and `TermsModal` components with smooth spring animations, clean readable typography, and instant close buttons.
+2. **`src/components/Auth.tsx`**:
+   - Audit and upgrade Auth component with 3 distinct tabs/modes:
+     - `signin`: Email + Password + "Forgot Password?" button.
+     - `signup`: Full Name + Email + Password + Terms/Privacy agreement links.
+     - `forgot`: Email input + "Send Recovery Link" button with countdown and confirmation.
+   - Add inline links to open Privacy Policy and Terms of Service directly in the auth card.
+3. **Password Reset Detection (`src/App.tsx` & `src/components/ResetPasswordModal.tsx`)**:
+   - Detect Supabase `PASSWORD_RECOVERY` auth event or `#type=recovery` URL hash.
+   - Present a prompt modal to set a new password via `supabase.auth.updateUser({ password })`.
+4. **Watermark & Legal Links in Main App**:
+   - Add footer watermark (`With ❤️ from Binuyo Legacy Hub`) and quick links to Privacy Policy and Terms of Service at the bottom of `App.tsx` and in the sidebar.

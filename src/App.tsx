@@ -14,6 +14,8 @@ import DailyLimitModal from './components/DailyLimitModal';
 import BugAntMascot from './components/BugAntMascot';
 import BugReportModal from './components/BugReportModal';
 import DuplicateTopicModal from './components/DuplicateTopicModal';
+import ResetPasswordModal from './components/ResetPasswordModal';
+import { PrivacyPolicyModal, TermsModal } from './components/LegalModals';
 import { NewsDisplay } from './components/NewsDisplay';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
@@ -127,18 +129,29 @@ export default function App() {
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [duplicateMatch, setDuplicateMatch] = useState<DuplicateCheckResult | null>(null);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
+    // Check if user came from a password recovery email link (#type=recovery)
+    if (window.location.hash.includes('type=recovery')) {
+      setIsResetPasswordOpen(true);
+    }
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for auth changes including PASSWORD_RECOVERY
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResetPasswordOpen(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -636,6 +649,30 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* Sidebar Footer Watermark */}
+            <div className="p-4 border-t border-black/5 bg-neutral-50/70 text-center space-y-1 text-[11px] text-neutral-500">
+              <div className="flex items-center justify-center gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowTermsModal(true)} 
+                  className="hover:text-black transition-colors underline cursor-pointer"
+                >
+                  Terms
+                </button>
+                <span aria-hidden="true">·</span>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPrivacyModal(true)} 
+                  className="hover:text-black transition-colors underline cursor-pointer"
+                >
+                  Privacy
+                </button>
+              </div>
+              <p className="text-[10px] text-neutral-400">
+                With ❤️ from <span className="font-semibold text-neutral-700">Binuyo Legacy Hub</span>
+              </p>
+            </div>
           </div>
       </aside>
 
@@ -1037,6 +1074,30 @@ export default function App() {
           )}
           </AnimatePresence>
         </div>
+
+        {/* Brand Signature Footer Watermark */}
+        <footer className="mt-auto py-8 px-4 border-t border-black/5 bg-white/50 text-center space-y-2">
+          <div className="flex items-center justify-center gap-3 text-xs text-neutral-500 font-medium">
+            <button 
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              className="hover:text-black transition-colors underline cursor-pointer"
+            >
+              Terms &amp; Conditions
+            </button>
+            <span aria-hidden="true">·</span>
+            <button 
+              type="button"
+              onClick={() => setShowPrivacyModal(true)}
+              className="hover:text-black transition-colors underline cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+          </div>
+          <p className="text-xs text-neutral-500 font-medium">
+            With ❤️ from <span className="font-bold text-neutral-800">Binuyo Legacy Hub</span>
+          </p>
+        </footer>
       </main>
 
       {/* Confirmation Modal */}
@@ -1101,6 +1162,29 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        isOpen={isResetPasswordOpen}
+        onClose={() => setIsResetPasswordOpen(false)}
+        onSuccess={() => {
+          setIsResetPasswordOpen(false);
+          // Clean hash from URL without reloading
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }}
+      />
+
+      {/* Legal Modals */}
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </div>
   );
 }
