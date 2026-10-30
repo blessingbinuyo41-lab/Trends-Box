@@ -287,16 +287,13 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
 
             {/* Topic Sample Selector Bar */}
             <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-                 
-              </span>
               {PIPELINE_SAMPLES.map((sample, idx) => (
                 <button
                   key={sample.id}
                   onClick={() => setSelectedSampleIndex(idx)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                     selectedSampleIndex === idx
-                      ? 'bg-white/15 text-white border bm
-                    order-white/20 shadow-sm'
+                      ? 'bg-white/15 text-white border border-white/20 shadow-sm'
                       : 'text-neutral-400 hover:text-white hover:bg-white/5 border border-transparent'
                   }`}
                 >
