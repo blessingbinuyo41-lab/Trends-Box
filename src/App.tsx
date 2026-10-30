@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
+import LandingPage from './components/LandingPage';
 import ConfirmationModal from './components/ConfirmationModal';
 import DailyLimitModal from './components/DailyLimitModal';
 import BugAntMascot from './components/BugAntMascot';
@@ -132,6 +133,7 @@ export default function App() {
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [authView, setAuthView] = useState<'landing' | 'signin' | 'signup'>('landing');
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -506,7 +508,21 @@ export default function App() {
   }
 
   if (!user) {
-    return <Auth />;
+    if (authView === 'landing') {
+      return (
+        <LandingPage
+          onGetStarted={() => setAuthView('signup')}
+          onSignIn={() => setAuthView('signin')}
+        />
+      );
+    }
+
+    return (
+      <Auth
+        initialMode={authView === 'signup' ? 'signup' : 'signin'}
+        onBackToLanding={() => setAuthView('landing')}
+      />
+    );
   }
 
   return (

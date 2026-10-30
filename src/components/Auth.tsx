@@ -6,8 +6,13 @@ import { PrivacyPolicyModal, TermsModal } from './LegalModals';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
-export default function Auth() {
-  const [mode, setMode] = useState<AuthMode>('signin');
+interface AuthProps {
+  initialMode?: AuthMode;
+  onBackToLanding?: () => void;
+}
+
+export default function Auth({ initialMode = 'signin', onBackToLanding }: AuthProps) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -152,9 +157,21 @@ export default function Auth() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-white rounded-[2.5rem] shadow-xl border border-black/5 overflow-hidden"
       >
-        <div className="p-8 md:p-10 space-y-6">
+        <div className="p-8 md:p-10 space-y-6 relative">
+          {/* Back to Home Button */}
+          {onBackToLanding && (
+            <button
+              type="button"
+              onClick={onBackToLanding}
+              className="absolute top-6 left-6 text-xs text-neutral-400 hover:text-neutral-900 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+            >
+              <ArrowLeft size={13} />
+              <span>Home</span>
+            </button>
+          )}
+
           {/* Logo & Headline */}
-          <div className="flex flex-col items-center text-center space-y-3">
+          <div className="flex flex-col items-center text-center space-y-3 pt-2">
             <div className="w-14 h-14 bg-black rounded-2xl flex items-center justify-center shadow-lg p-2">
               <img 
                 src="/Trends_Box_Icon_20260302_211907_0000.png" 

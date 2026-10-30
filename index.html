@@ -3,27 +3,76 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trends Box | Nigeria's Real-time News Aggregator</title>
-    <meta name="description" content="Trends Box aggregates Nigeria's top stories in real-time. Get professional news summaries, social media content, and verified sources in one place." />
-    <meta name="keywords" content="Nigeria news, trends, AI news aggregator, Nigerian stories, real-time news, Trends Box" />
     
-    <!-- Open Graph / Facebook -->
+    <!-- Primary Page Title & Meta Description (Search Engine Optimization) -->
+    <title>Trends Box – Real-Time Nigerian News &amp; Editorial Intelligence</title>
+    <meta 
+      name="description" 
+      content="Transform breaking news from 36 Nigerian states into publish-ready editorial blogs and viral social threads with 100% verified sources and zero duplicates." 
+    />
+    <meta 
+      name="keywords" 
+      content="Nigeria news, Nigerian breaking news, editorial blog generator, social media content, Punch news, Vanguard, Premium Times, TheCable, Trends Box, Binuyo Legacy Hub" 
+    />
+    <meta name="author" content="Binuyo Legacy Hub" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Official Product Logo Favicon Support -->
+    <link rel="icon" type="image/png" href="/Trends_Box_Icon_20260302_211907_0000.png" />
+    <link rel="shortcut icon" type="image/png" href="/Trends_Box_Icon_20260302_211907_0000.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/Trends_Box_Icon_20260302_211907_0000.png" />
+    
+    <!-- Open Graph / Facebook / LinkedIn / WhatsApp Social Share Card -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://trendsbox.com/" />
-    <meta property="og:title" content="Trends Box | Nigeria's Real-time News Aggregator" />
-    <meta property="og:description" content="Aggregating Nigeria's top stories in real-time. Professional news summaries and verified sources." />
-    <meta property="og:image" content="https://picsum.photos/1200/630" />
+    <meta property="og:site_name" content="Trends Box Nigeria" />
+    <meta property="og:title" content="Trends Box – Real-Time Nigerian News &amp; Editorial Intelligence" />
+    <meta 
+      property="og:description" 
+      content="Transform breaking news from 36 Nigerian states into publish-ready editorial blogs and viral social threads with 100% verified sources and zero duplicates." 
+    />
+    <meta property="og:image" content="/trends_box_dashboard_card copy.png" />
+    <meta property="og:image:alt" content="Trends Box Nigeria Editorial News Intelligence Dashboard" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:title" content="Trends Box | Nigeria's Real-time News Aggregator" />
-    <meta property="twitter:description" content="Aggregating Nigeria's top stories in real-time. Professional news summaries and verified sources." />
-    <meta property="twitter:image" content="https://picsum.photos/1200/630" />
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@TrendsBoxNG" />
+    <meta name="twitter:title" content="Trends Box – Real-Time Nigerian News &amp; Editorial Intelligence" />
+    <meta 
+      name="twitter:description" 
+      content="Transform breaking news from 36 Nigerian states into publish-ready editorial blogs and viral social threads with 100% verified sources." 
+    />
+    <meta name="twitter:image" content="/trends_box_dashboard_card copy.png" />
 
-    <!-- PWA -->
+    <!-- PWA & Mobile Web Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#000000" />
-    <link rel="apple-touch-icon" href="/Trends_Box_Icon_20260302_211907_0000.png" />
+    <meta name="theme-color" content="#07090E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Trends Box" />
+
+    <!-- Schema.org Structured Data (JSON-LD) for Search Engine Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Trends Box Nigeria",
+      "applicationCategory": "NewsApplication, BusinessApplication",
+      "operatingSystem": "All",
+      "description": "Real-time Nigerian news aggregator and content generator with AI-powered summarization, social media formatting, and verified source tracking across 36 states.",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "creator": {
+        "@type": "Organization",
+        "name": "Binuyo Legacy Hub"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
     
     <script>
       if ('serviceWorker' in navigator) {
@@ -38,4 +87,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
