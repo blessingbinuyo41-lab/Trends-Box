@@ -201,9 +201,9 @@ export default function BugReportModal({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-bold tracking-tight text-white">Bug Ant Hunter</h2>
+                      <h2 className="text-lg font-bold tracking-tight text-white">Bug Hunter</h2>
                       <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 text-[9px] font-black uppercase tracking-wider rounded-full border border-amber-400/30">
-                        Live Support
+                        Support Feedback
                       </span>
                     </div>
                     <p className="text-xs text-neutral-400 mt-0.5">
@@ -375,7 +375,7 @@ export default function BugReportModal({
                     <div className="flex justify-between items-center">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
                         <ImageIcon size={14} className="text-amber-500" />
-                        <span>Screenshot Evidence (Max 2 Images)</span>
+                        <span>Evidence (Max 2 Images)</span>
                       </label>
                       <span className="text-[10px] text-neutral-400">
                         {files.length}/2 attached
