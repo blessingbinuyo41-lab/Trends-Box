@@ -91,7 +91,7 @@ export function PrivacyPolicyModal({ isOpen, onClose }: LegalModalProps) {
             <div className="space-y-1.5">
               <h4 className="text-sm font-bold text-neutral-900">5. Contact Us</h4>
               <p>
-                For privacy inquiries or account data deletion requests, contact Binuyo Legacy Hub support at <code className="bg-neutral-100 px-1 py-0.5 rounded text-neutral-800">blessingbinuyo41@gmail.com</code>.
+                For privacy inquiries or account data deletion requests, contact Binuyo Legacy Hub support at <code className="bg-neutral-100 px-1 py-0.5 rounded text-neutral-800">binuyolegacy@cc.cc</code>.
               </p>
             </div>
           </div>
