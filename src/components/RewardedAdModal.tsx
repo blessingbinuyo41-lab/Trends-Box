@@ -22,6 +22,7 @@ export default function RewardedAdModal({
   const [isMuted, setIsMuted] = useState(false);
   const [rewardGranted, setRewardGranted] = useState(false);
   const [skipAttempted, setSkipAttempted] = useState(false);
+  const hasTriggeredRewardRef = React.useRef(false);
 
   // Reset modal state when opened
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function RewardedAdModal({
       setTimeLeft(duration);
       setRewardGranted(false);
       setSkipAttempted(false);
+      hasTriggeredRewardRef.current = false;
     }
   }, [isOpen, duration]);
 
@@ -43,7 +45,10 @@ export default function RewardedAdModal({
             clearInterval(timer);
             setIsPlaying(false);
             setRewardGranted(true);
-            onRewardGranted();
+            if (!hasTriggeredRewardRef.current) {
+              hasTriggeredRewardRef.current = true;
+              onRewardGranted();
+            }
             return 0;
           }
           return prev - 1;
@@ -110,31 +115,31 @@ export default function RewardedAdModal({
           </div>
 
           {/* Ad Canvas / Video Simulation Screen */}
-          <div className="relative aspect-video bg-gradient-to-br from-neutral-900 via-black to-neutral-950 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
+          <div className="relative min-h-[340px] sm:min-h-[380px] bg-gradient-to-br from-neutral-900 via-black to-neutral-950 flex flex-col items-center justify-center p-5 sm:p-7 text-center overflow-hidden">
             {/* Background Pulsing Lights */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.15),transparent_70%)] pointer-events-none" />
 
             {!isPlaying && !rewardGranted ? (
               /* Pre-roll: Select Duration & Start */
-              <div className="space-y-4 max-w-sm relative z-10">
+              <div className="space-y-4 max-w-sm relative z-10 w-full py-2">
                 <div className="w-14 h-14 rounded-2xl bg-amber-400 text-black mx-auto flex items-center justify-center shadow-lg shadow-amber-400/20">
                   <Award size={28} />
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white tracking-tight">Watch to Earn +5 TRB Points</h3>
-                  <p className="text-xs text-neutral-400 mt-1">
+                <div className="space-y-1">
+                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">Watch to Earn +5 TRB Points</h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
                     Select ad duration. Watch until the end to instantly unlock 5 additional editorial generations today.
                   </p>
                 </div>
 
                 {/* Duration Selectors */}
-                <div className="grid grid-cols-3 gap-2 pt-2">
+                <div className="grid grid-cols-3 gap-2.5 pt-2">
                   {([15, 30, 60] as const).map(sec => (
                     <button
                       key={sec}
                       type="button"
                       onClick={() => handleStartAd(sec)}
-                      className="p-3 rounded-2xl bg-white/[0.06] hover:bg-amber-400 hover:text-black border border-white/10 hover:border-amber-400 transition-all cursor-pointer group text-center"
+                      className="p-3 sm:p-3.5 rounded-2xl bg-white/[0.06] hover:bg-amber-400 hover:text-black border border-white/10 hover:border-amber-400 transition-all cursor-pointer group text-center"
                     >
                       <div className="text-sm font-bold">{sec}s</div>
                       <div className="text-[10px] text-neutral-400 group-hover:text-black/80 font-mono">+5 TRB</div>
@@ -148,13 +153,13 @@ export default function RewardedAdModal({
               </div>
             ) : isPlaying ? (
               /* Playing Screen with Countdown Timer & Simulated Ad Creative */
-              <div className="space-y-4 relative z-10 w-full">
-                {/* Audio and Countdown Controls */}
-                <div className="absolute -top-2 left-0 right-0 flex items-center justify-between px-2">
+              <div className="space-y-5 relative z-10 w-full py-2">
+                {/* Audio and Countdown Controls (Properly positioned within flow) */}
+                <div className="flex items-center justify-between pb-2">
                   <button
                     type="button"
                     onClick={() => setIsMuted(prev => !prev)}
-                    className="p-2 rounded-xl bg-black/60 text-white/80 hover:text-white border border-white/10"
+                    className="p-2 rounded-xl bg-black/70 text-white/80 hover:text-white border border-white/10 cursor-pointer"
                   >
                     {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
                   </button>
@@ -166,7 +171,7 @@ export default function RewardedAdModal({
                 </div>
 
                 {/* Animated Creative Visual */}
-                <div className="py-6 space-y-3">
+                <div className="py-4 space-y-3">
                   <motion.div
                     animate={{ scale: [1, 1.04, 1] }}
                     transition={{ repeat: Infinity, duration: 2 }}
@@ -174,7 +179,7 @@ export default function RewardedAdModal({
                   >
                     ⚡
                   </motion.div>
-                  <h4 className="text-base font-bold text-white tracking-tight">
+                  <h4 className="text-base sm:text-lg font-bold text-white tracking-tight">
                     Trends Box Enterprise News API
                   </h4>
                   <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">

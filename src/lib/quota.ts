@@ -191,10 +191,11 @@ export async function addTrbReward(userId?: string | null): Promise<TrbDailyStat
     }
   }
 
-  // Sync to Supabase user metadata in background
+  // Sync to Supabase in background (both user_metadata and dedicated trb_rewards table)
   if (userId) {
     (async () => {
       try {
+        // 1. Sync to user_metadata
         await supabase.auth.updateUser({
           data: {
             trb_rewards: {
@@ -204,6 +205,16 @@ export async function addTrbReward(userId?: string | null): Promise<TrbDailyStat
             }
           }
         });
+
+        // 2. Upsert to trb_rewards table
+        await supabase
+          .from('trb_rewards')
+          .upsert({
+            user_id: userId,
+            date: today,
+            ads_watched: nextAdsWatched,
+            bonus_points: nextBonus
+          }, { onConflict: 'user_id,date' });
       } catch (err) {
         console.warn('Supabase TRB sync skipped:', err);
       }
@@ -211,6 +222,41 @@ export async function addTrbReward(userId?: string | null): Promise<TrbDailyStat
   }
 
   return { adsWatched: nextAdsWatched, bonusPoints: nextBonus };
+}
+
+/**
+ * Synchronizes TRB rewards with Supabase if online so users cannot cheat by clearing localStorage.
+ */
+export async function syncTrbWithServer(userId?: string | null): Promise<TrbDailyState> {
+  const localTrb = getLocalTrbState(userId);
+  if (!userId) return localTrb;
+
+  const today = getNigeriaDateKey();
+
+  try {
+    const { data, error } = await supabase
+      .from('trb_rewards')
+      .select('ads_watched, bonus_points')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .maybeSingle();
+
+    if (!error && data && typeof data.ads_watched === 'number') {
+      const maxAds = Math.max(localTrb.adsWatched, data.ads_watched);
+      const key = getTrbStorageKey(userId);
+      localStorage.setItem(key, JSON.stringify({
+        [today]: { adsWatched: maxAds }
+      }));
+      return {
+        adsWatched: maxAds,
+        bonusPoints: maxAds * TRB_POINTS_PER_AD
+      };
+    }
+  } catch (err) {
+    console.warn('Supabase TRB fetch skipped (using local cache):', err);
+  }
+
+  return localTrb;
 }
 
 /**

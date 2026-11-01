@@ -32,7 +32,8 @@ import {
   getLocalTrbState,
   getEffectiveLimit,
   canWatchRewardedAd,
-  addTrbReward
+  addTrbReward,
+  syncTrbWithServer
 } from './lib/quota';
 import { checkTopicDuplicate, DuplicateCheckResult, fetchRecentPlatformArticles } from './lib/duplicateService';
 
@@ -47,22 +48,24 @@ interface UsageBadgeProps {
 }
 
 const UsageBadge = memo(function UsageBadge({ count, limit, bonusTrb = 0, isMobile = false, onClick }: UsageBadgeProps) {
+  // Dynamic styling based on usage tier:
+  // - Rose / Red: Exceeded / locked (count >= limit)
+  // - Amber: Warning when reaching 70% of total available points (count >= floor(limit * 0.7))
+  // - Emerald Green: Healthy available quota from start (count < floor(limit * 0.7))
   const isExceeded = count >= limit;
-  // Warning triggers at 70% of current effective limit (e.g. 4/6 or 8/11)
-  const isNearLimit = !isExceeded && count >= Math.ceil(limit * 0.7);
+  const isNearLimit = !isExceeded && count >= Math.floor(limit * 0.7);
 
-  // Dynamic styling based on usage tier
   const colorStyles = isExceeded
     ? "bg-rose-50 text-rose-700 border-rose-200/90 shadow-xs ring-1 ring-rose-300/60"
     : isNearLimit
     ? "bg-amber-50 text-amber-800 border-amber-200/90 shadow-xs ring-1 ring-amber-200/40"
-    : "bg-[#F5F5F5] hover:bg-neutral-100 text-neutral-800 border-neutral-200/80 shadow-xs";
+    : "bg-emerald-50 text-emerald-800 border-emerald-200/90 shadow-xs ring-1 ring-emerald-200/40 hover:bg-emerald-100/70";
 
   const iconColor = isExceeded
     ? "text-rose-600"
     : isNearLimit
     ? "text-amber-600"
-    : "text-neutral-500";
+    : "text-emerald-600";
 
   return (
     <button 
@@ -193,9 +196,14 @@ export default function App() {
       setTrbBonus(trb.bonusPoints);
       setTrbAdsWatched(trb.adsWatched);
 
-      // Non-blocking background sync with server
+      // Non-blocking background sync with server for both usage and TRB rewards
       syncUsageWithServer(user.id).then(cnt => {
         setUsageCount(cnt);
+      });
+
+      syncTrbWithServer(user.id).then(trbState => {
+        setTrbBonus(trbState.bonusPoints);
+        setTrbAdsWatched(trbState.adsWatched);
       });
     } else {
       setHistory([]);
@@ -925,8 +933,8 @@ export default function App() {
                       }
                     }}
                     placeholder={
-                      usageCount >= DAILY_LIMIT
-                        ? "Daily generation quota reached (10/10). Resets tonight at midnight 00:00."
+                      usageCount >= (DAILY_LIMIT + trbBonus)
+                        ? `Daily generation quota reached (${usageCount}/${DAILY_LIMIT + trbBonus}). Resets at midnight WAT or unlock with TRB.`
                         : "e.g. Focus on the recent fuel price changes in Lagos..."
                     }
                     className="w-full bg-[#F5F5F5] border-none rounded-2xl px-4 py-4 text-sm min-h-[100px] md:min-h-[120px] focus:ring-2 focus:ring-black transition-all"
@@ -934,7 +942,7 @@ export default function App() {
                 </div>
 
                 {/* Inline Generation Limit Blocking Notice */}
-                {usageCount >= DAILY_LIMIT && (
+                {usageCount >= (DAILY_LIMIT + trbBonus) && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.98, y: 4 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -945,8 +953,12 @@ export default function App() {
                         <ShieldAlert size={18} />
                       </div>
                       <div>
-                        <div className="font-bold text-rose-950 text-xs sm:text-sm">Daily Generation Quota Reached (10/10)</div>
-                        <div className="text-rose-700/80 text-[11px] leading-relaxed">Further generation is blocked until the counter automatically resets at midnight.</div>
+                        <div className="font-bold text-rose-950 text-xs sm:text-sm">
+                          Daily Generation Quota Reached ({usageCount}/{DAILY_LIMIT + trbBonus})
+                        </div>
+                        <div className="text-rose-700/80 text-[11px] leading-relaxed">
+                          Watch a short rewarded ad to unlock +5 TRB points or wait for midnight reset.
+                        </div>
                       </div>
                     </div>
                     <button
@@ -954,14 +966,14 @@ export default function App() {
                       onClick={() => setIsLimitModalOpen(true)}
                       className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl text-xs shrink-0 transition-all shadow-xs cursor-pointer text-center"
                     >
-                      Limit Details
+                      Unlock Quotas
                     </button>
                   </motion.div>
                 )}
 
                 <button 
                   onClick={() => {
-                    if (usageCount >= DAILY_LIMIT) {
+                    if (usageCount >= (DAILY_LIMIT + trbBonus)) {
                       setIsLimitModalOpen(true);
                       return;
                     }
@@ -969,7 +981,7 @@ export default function App() {
                   }}
                   disabled={loading}
                   className={`w-full py-3.5 md:py-4 rounded-xl md:rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    usageCount >= DAILY_LIMIT
+                    usageCount >= (DAILY_LIMIT + trbBonus)
                       ? 'bg-neutral-900 text-rose-400 hover:bg-black border border-rose-500/30 shadow-md'
                       : 'bg-black text-white hover:bg-black/90 shadow-md hover:shadow-lg'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -979,10 +991,10 @@ export default function App() {
                       <Loader2 className="animate-spin" size={20} />
                       Crafting The Content...
                     </>
-                  ) : usageCount >= DAILY_LIMIT ? (
+                  ) : usageCount >= (DAILY_LIMIT + trbBonus) ? (
                     <>
                       <Lock size={18} className="text-rose-400" />
-                      <span>Daily Limit Reached (10/10) • Locked</span>
+                      <span>Daily Limit Reached ({usageCount}/{DAILY_LIMIT + trbBonus}) • Locked</span>
                     </>
                   ) : (
                     <>
