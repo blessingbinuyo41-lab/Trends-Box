@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Clock, History, AlertTriangle, Sparkles, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import { getTimeUntilNigeriaMidnight } from '../lib/quota';
+import { X, Clock, History, AlertTriangle, Sparkles, ArrowRight, ShieldAlert, Award, Play } from 'lucide-react';
+import { getTimeUntilNigeriaMidnight, MAX_TRB_ADS_PER_DAY } from '../lib/quota';
 
 interface DailyLimitModalProps {
   isOpen: boolean;
@@ -10,6 +10,9 @@ interface DailyLimitModalProps {
   currentUsage: number;
   maxLimit: number;
   onResetQuota?: () => void;
+  onWatchAd?: () => void;
+  adsWatchedToday?: number;
+  canWatchAd?: boolean;
 }
 
 export default function DailyLimitModal({
@@ -18,7 +21,10 @@ export default function DailyLimitModal({
   onViewHistory,
   currentUsage,
   maxLimit,
-  onResetQuota
+  onResetQuota,
+  onWatchAd,
+  adsWatchedToday = 0,
+  canWatchAd = true
 }: DailyLimitModalProps) {
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: 0,
@@ -36,7 +42,6 @@ export default function DailyLimitModal({
         seconds: countdown.seconds
       });
 
-      // If midnight has arrived, trigger reset and close modal
       if (countdown.isPastMidnight && onResetQuota) {
         onResetQuota();
         onClose();
@@ -63,24 +68,24 @@ export default function DailyLimitModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 bg-black/65 will-change-[opacity]"
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 16 }}
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 16 }}
-            transition={{ type: "spring", damping: 26, stiffness: 360 }}
-            className="relative w-full max-w-md bg-white rounded-3xl md:rounded-[2rem] shadow-2xl border border-black/10 overflow-hidden z-10"
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full max-w-md bg-white rounded-3xl md:rounded-[2rem] shadow-2xl border border-black/10 overflow-hidden z-10 will-change-transform transform-gpu"
             role="dialog"
             aria-modal="true"
             aria-labelledby="limit-modal-title"
@@ -91,7 +96,7 @@ export default function DailyLimitModal({
             {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-full text-black/40 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
               aria-label="Close modal"
             >
               <X size={18} />
@@ -113,29 +118,73 @@ export default function DailyLimitModal({
 
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 text-rose-700 rounded-full text-[10px] font-bold uppercase tracking-widest">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                  Daily Cap Reached ({currentUsage}/{maxLimit})
+                  Daily Quota Reached ({currentUsage}/{maxLimit})
                 </div>
 
                 <div className="space-y-1.5">
                   <h3 id="limit-modal-title" className="text-xl md:text-2xl font-bold tracking-tight text-neutral-900">
-                    Daily Generation Limit
+                    Daily Limit Reached
                   </h3>
                   <p className="text-xs md:text-sm text-neutral-500 leading-relaxed max-w-sm">
-                    You have reached your daily quota of <span className="font-semibold text-neutral-900">{maxLimit} generations</span> for today. Content generation is currently locked until your quota resets.
+                    You have reached your quota limit of <span className="font-semibold text-neutral-900">{maxLimit} generations</span> for today.
                   </p>
                 </div>
               </div>
+
+              {/* Rewarded Video Ad Card (TRB Reward Unlock) */}
+              {onWatchAd && (
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-400/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-400 text-black flex items-center justify-center shadow-sm">
+                        <Award size={16} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                          <span>Unlock with TRB Points</span>
+                          <span className="px-1.5 py-0.2 bg-amber-400 text-black font-extrabold text-[9px] rounded">
+                            +5 QUOTAS
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-500">
+                          {adsWatchedToday < MAX_TRB_ADS_PER_DAY 
+                            ? `${MAX_TRB_ADS_PER_DAY - adsWatchedToday} reward ads available today`
+                            : 'Daily ad reward limit reached'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {canWatchAd ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onWatchAd();
+                      }}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-black font-extrabold text-xs rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Play size={14} className="fill-black" />
+                      <span>Watch Short Video &amp; Earn +5 TRB</span>
+                    </button>
+                  ) : (
+                    <div className="text-center py-2 text-xs text-neutral-500 bg-black/5 rounded-xl">
+                      Daily 10/10 ad unlocks completed. Resets at midnight.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Countdown & Quota Card */}
               <div className="bg-neutral-50 border border-neutral-200/70 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-neutral-400 text-[10px]">
                     <Clock size={13} className="text-neutral-500" />
-                    Automatic Reset In
+                    Midnight Reset In
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-100/60 px-2.5 py-0.5 rounded-md flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    12:00 AM WAT (Nigeria Time)
+                    12:00 AM WAT
                   </span>
                 </div>
 
@@ -164,7 +213,7 @@ export default function DailyLimitModal({
                 {/* Progress Visual */}
                 <div className="space-y-1 pt-1">
                   <div className="flex justify-between text-[11px] font-semibold text-neutral-600">
-                    <span>Usage Progress</span>
+                    <span>Quota Exhaustion</span>
                     <span className="font-mono text-rose-600">{currentUsage}/{maxLimit} (100%)</span>
                   </div>
                   <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
@@ -185,18 +234,18 @@ export default function DailyLimitModal({
                     onClose();
                     onViewHistory();
                   }}
-                  className="w-full py-3.5 px-4 bg-black text-white rounded-xl font-bold text-sm shadow-md hover:bg-neutral-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                  className="w-full py-3 px-4 bg-black text-white rounded-xl font-bold text-xs shadow-md hover:bg-neutral-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group cursor-pointer"
                 >
-                  <History size={16} />
+                  <History size={15} />
                   <span>Review Past Generations</span>
-                  <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </button>
 
                 <button
                   onClick={onClose}
-                  className="w-full py-3 px-4 bg-transparent hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 rounded-xl font-semibold text-xs transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-transparent hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 rounded-xl font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  Understood, Got It
+                  Close &amp; Wait for Midnight Reset
                 </button>
               </div>
             </div>

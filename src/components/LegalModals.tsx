@@ -64,6 +64,7 @@ export function PrivacyPolicyModal({ isOpen, onClose }: LegalModalProps) {
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong>Account Credentials:</strong> Your name and email address when creating an account or resetting your password.</li>
                 <li><strong>Generation Records:</strong> Titles, excerpts, and editorial blogs or social card content generated during your sessions, stored in your private history.</li>
+                <li><strong>Quota &amp; Reward Points (TRB):</strong> Daily usage counts and verified completed ad interaction records used to calculate earned TRB bonus quotas.</li>
                 <li><strong>Technical Diagnostics:</strong> Browser environment, screen dimensions, and Nigerian time (WAT) sent solely when filing bug reports or calculating daily quotas.</li>
               </ul>
             </div>
@@ -76,8 +77,9 @@ export function PrivacyPolicyModal({ isOpen, onClose }: LegalModalProps) {
               <ul className="list-disc pl-5 space-y-1">
                 <li>Provide editorial blog generation and social media formatting.</li>
                 <li>Enforce fair daily usage quotas reset automatically at 12:00 AM West Africa Time (WAT).</li>
+                <li>Credit earned TRB points upon successful completion of rewarded partner video advertisements.</li>
                 <li>Detect duplicate trending stories across recent 24–48 hour news cycles to avoid repetitive coverage.</li>
-                <li>Respond to feedback and bug submissions filed via our Bug Ant Hunter support desk.</li>
+                <li>Respond to feedback and bug submissions filed via our Bug Hunter support desk.</li>
               </ul>
             </div>
 
@@ -89,7 +91,19 @@ export function PrivacyPolicyModal({ isOpen, onClose }: LegalModalProps) {
             </div>
 
             <div className="space-y-1.5">
-              <h4 className="text-sm font-bold text-neutral-900">5. Contact Us</h4>
+              <h4 className="text-sm font-bold text-neutral-900">5. Advertising &amp; Monetization Data Practices</h4>
+              <p>
+                Trends Box offers an optional Rewarded Ad service that allows users who have exhausted their free baseline daily quota to unlock additional generations by earning TRB Points.
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Ad Partners:</strong> We may display video advertisements through recognized ad networks, such as Google AdSense / AdMob for Web, or certified third-party ad exchanges.</li>
+                <li><strong>Ad Delivery Data:</strong> Ad partners may use standardized cookies, web beacons, and mobile device identifiers to measure ad viewability, prevent impression fraud, and serve non-intrusive or interest-relevant sponsored content in accordance with their respective privacy disclosures.</li>
+                <li><strong>Opt-In Reward Model:</strong> Watching rewarded video ads is entirely voluntary. Users who choose not to watch ads may simply wait for their standard daily quota to refresh at midnight (12:00 AM WAT) without any penalty.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-neutral-900">6. Contact Us</h4>
               <p>
                 For privacy inquiries or account data deletion requests, contact Binuyo Legacy Hub support at <code className="bg-neutral-100 px-1 py-0.5 rounded text-neutral-800">binuyolegacy@cc.cc</code>.
               </p>
@@ -172,9 +186,9 @@ export function TermsModal({ isOpen, onClose }: LegalModalProps) {
             </div>
 
             <div className="space-y-1.5">
-              <h4 className="text-sm font-bold text-neutral-900">3. Daily Generation Quota &amp; Fair Use</h4>
+              <h4 className="text-sm font-bold text-neutral-900">3. Daily Generation Quota &amp; TRB Points</h4>
               <p>
-                To maintain high service availability, each account is allocated a daily quota of 10 generations, which automatically resets at midnight (12:00 AM West Africa Time). Any attempt to bypass quotas via automated scripts, scrapers, or abusive traffic will result in account suspension.
+                To maintain high service availability, each account is allocated an everyday free baseline quota of 6 generations, resetting at midnight (12:00 AM West Africa Time). Once the base quota is exhausted, users may optionally watch short sponsored partner ads to earn +5 TRB (Trends Box Reward) points per completed ad, up to 10 ads per day. Any attempt to bypass quotas via automated scripts or abusive traffic will result in account suspension.
               </p>
             </div>
 

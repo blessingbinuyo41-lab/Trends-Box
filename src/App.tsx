@@ -16,12 +16,24 @@ import BugAntMascot from './components/BugAntMascot';
 import BugReportModal from './components/BugReportModal';
 import DuplicateTopicModal from './components/DuplicateTopicModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
+import RewardedAdModal from './components/RewardedAdModal';
 import { PrivacyPolicyModal, TermsModal } from './components/LegalModals';
 import { NewsDisplay } from './components/NewsDisplay';
 import { GenerationRecord, GenerationType, Category, NewsSource } from './types';
 import { CATEGORIES, getReliabilityScore } from './constants';
 import { generateEditorialCover, convertBlogToSocial } from './lib/editorialCover';
-import { DAILY_LIMIT, getLocalUsageCount, incrementUsageCount, syncUsageWithServer, getNigeriaDateKey } from './lib/quota';
+import { 
+  DAILY_LIMIT, 
+  MAX_TRB_ADS_PER_DAY,
+  getLocalUsageCount, 
+  incrementUsageCount, 
+  syncUsageWithServer, 
+  getNigeriaDateKey,
+  getLocalTrbState,
+  getEffectiveLimit,
+  canWatchRewardedAd,
+  addTrbReward
+} from './lib/quota';
 import { checkTopicDuplicate, DuplicateCheckResult, fetchRecentPlatformArticles } from './lib/duplicateService';
 
 // Safe access to process.env for production builds
@@ -29,13 +41,15 @@ import { checkTopicDuplicate, DuplicateCheckResult, fetchRecentPlatformArticles 
 interface UsageBadgeProps {
   count: number;
   limit: number;
+  bonusTrb?: number;
   isMobile?: boolean;
   onClick?: () => void;
 }
 
-const UsageBadge = memo(function UsageBadge({ count, limit, isMobile = false, onClick }: UsageBadgeProps) {
+const UsageBadge = memo(function UsageBadge({ count, limit, bonusTrb = 0, isMobile = false, onClick }: UsageBadgeProps) {
   const isExceeded = count >= limit;
-  const isNearLimit = !isExceeded && count >= Math.floor(limit * 0.7);
+  // Warning triggers at 70% of current effective limit (e.g. 4/6 or 8/11)
+  const isNearLimit = !isExceeded && count >= Math.ceil(limit * 0.7);
 
   // Dynamic styling based on usage tier
   const colorStyles = isExceeded
@@ -57,9 +71,9 @@ const UsageBadge = memo(function UsageBadge({ count, limit, isMobile = false, on
       className={`inline-flex items-center gap-1.5 rounded-full border transition-all duration-300 select-none cursor-pointer active:scale-95 hover:brightness-95 ${colorStyles} ${
         isMobile ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1 text-xs'
       }`}
-      title={`Daily Usage: ${count}/${limit} used today (Click to view limit details)`}
+      title={`Daily Quota: ${count}/${limit} used today${bonusTrb > 0 ? ` (${bonusTrb} TRB Bonus active)` : ''}. Click to view details.`}
       role="status"
-      aria-label={`Daily usage: ${count} of ${limit}. Click for details`}
+      aria-label={`Daily quota: ${count} of ${limit}. Click for details`}
     >
       <motion.div
         key={`icon-${count}`}
@@ -88,6 +102,11 @@ const UsageBadge = memo(function UsageBadge({ count, limit, isMobile = false, on
           </AnimatePresence>
         </div>
         <span className="opacity-40 font-semibold text-[10px] sm:text-[11px] ml-0.5">/{limit}</span>
+        {bonusTrb > 0 && (
+          <span className="ml-1 text-[9px] font-extrabold text-amber-600 bg-amber-100/70 px-1 py-0.2 rounded">
+            TRB
+          </span>
+        )}
       </div>
     </button>
   );
@@ -134,6 +153,9 @@ export default function App() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [authView, setAuthView] = useState<'landing' | 'signin' | 'signup'>('landing');
+  const [isRewardedAdOpen, setIsRewardedAdOpen] = useState(false);
+  const [trbBonus, setTrbBonus] = useState(0);
+  const [trbAdsWatched, setTrbAdsWatched] = useState(0);
 
   const ITEMS_PER_PAGE = 10;
   useEffect(() => {
@@ -166,6 +188,11 @@ export default function App() {
       const current = getLocalUsageCount(user.id);
       setUsageCount(current);
 
+      // Load TRB state
+      const trb = getLocalTrbState(user.id);
+      setTrbBonus(trb.bonusPoints);
+      setTrbAdsWatched(trb.adsWatched);
+
       // Non-blocking background sync with server
       syncUsageWithServer(user.id).then(cnt => {
         setUsageCount(cnt);
@@ -175,6 +202,9 @@ export default function App() {
       setDisplayedHistory([]);
       const guestUsage = getLocalUsageCount(null);
       setUsageCount(guestUsage);
+      const guestTrb = getLocalTrbState(null);
+      setTrbBonus(guestTrb.bonusPoints);
+      setTrbAdsWatched(guestTrb.adsWatched);
     }
   }, [user]);
 
@@ -296,7 +326,8 @@ export default function App() {
 
   const executeGeneration = async (forceBypassDuplicate: boolean = false) => {
     const freshCount = getLocalUsageCount(user?.id);
-    if (freshCount >= DAILY_LIMIT) {
+    const effectiveLimit = getEffectiveLimit(user?.id);
+    if (freshCount >= effectiveLimit) {
       setUsageCount(freshCount);
       setIsLimitModalOpen(true);
       return;
@@ -551,7 +582,13 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <UsageBadge count={usageCount} limit={DAILY_LIMIT} isMobile onClick={() => setIsLimitModalOpen(true)} />
+          <UsageBadge 
+            count={usageCount} 
+            limit={DAILY_LIMIT + trbBonus} 
+            bonusTrb={trbBonus}
+            isMobile 
+            onClick={() => setIsLimitModalOpen(true)} 
+          />
 
           <button 
             onClick={handleReset}
@@ -718,7 +755,12 @@ export default function App() {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <UsageBadge count={usageCount} limit={DAILY_LIMIT} onClick={() => setIsLimitModalOpen(true)} />
+            <UsageBadge 
+              count={usageCount} 
+              limit={DAILY_LIMIT + trbBonus} 
+              bonusTrb={trbBonus}
+              onClick={() => setIsLimitModalOpen(true)} 
+            />
 
             <button 
               onClick={handleReset}
@@ -1123,7 +1165,7 @@ export default function App() {
         onConfirm={handleConfirmDelete}
       />
 
-      {/* Daily Limit Modal */}
+      {/* Daily Limit Modal with TRB Unlock Support */}
       <DailyLimitModal
         isOpen={isLimitModalOpen}
         onClose={() => setIsLimitModalOpen(false)}
@@ -1134,8 +1176,27 @@ export default function App() {
           }
         }}
         currentUsage={usageCount}
-        maxLimit={DAILY_LIMIT}
-        onResetQuota={() => setUsageCount(0)}
+        maxLimit={DAILY_LIMIT + trbBonus}
+        onResetQuota={() => {
+          setUsageCount(0);
+          setTrbBonus(0);
+          setTrbAdsWatched(0);
+        }}
+        onWatchAd={() => setIsRewardedAdOpen(true)}
+        adsWatchedToday={trbAdsWatched}
+        canWatchAd={canWatchRewardedAd(usageCount, user?.id)}
+      />
+
+      {/* Rewarded Video Ad Modal */}
+      <RewardedAdModal
+        isOpen={isRewardedAdOpen}
+        onClose={() => setIsRewardedAdOpen(false)}
+        remainingAdsToday={Math.max(0, MAX_TRB_ADS_PER_DAY - trbAdsWatched)}
+        onRewardGranted={async () => {
+          const updatedTrb = await addTrbReward(user?.id);
+          setTrbBonus(updatedTrb.bonusPoints);
+          setTrbAdsWatched(updatedTrb.adsWatched);
+        }}
       />
 
       {/* Interactive Bug Ant Mascot */}

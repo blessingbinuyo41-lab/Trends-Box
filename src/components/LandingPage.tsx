@@ -277,69 +277,83 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
 
         {/* Interactive Device Viewport */}
         <div className="rounded-3xl bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/10 p-3 sm:p-6 shadow-2xl">
-          {/* Top Mock Window Controls */}
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-              <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-              <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-            </div>
+          {/* Top Mock Window Header */}
+          <div className="space-y-3 pb-4 mb-4 border-b border-white/5">
+            {/* Top Row: Window Dots + Format Toggle Pill */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+              </div>
 
-            {/* Topic Sample Selector Bar */}
-            <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-              {PIPELINE_SAMPLES.map((sample, idx) => (
+              {/* Smooth Sliding Format Toggle Pill */}
+              <div className="relative flex items-center p-1 bg-black/90 rounded-xl border border-white/10 shrink-0 overflow-hidden shadow-inner">
                 <button
-                  key={sample.id}
-                  onClick={() => setSelectedSampleIndex(idx)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                    selectedSampleIndex === idx
-                      ? 'bg-white/15 text-white border border-white/20 shadow-sm'
-                      : 'text-neutral-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  type="button"
+                  onClick={() => setActiveTab('editorial')}
+                  className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 z-10 ${
+                    activeTab === 'editorial' ? 'text-black' : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-rose-400' : idx === 1 ? 'bg-cyan-400' : 'bg-emerald-400'}`} />
-                  <span>{sample.category}</span>
+                  <FileText size={13} className="shrink-0" />
+                  <span>Blog</span>
+                  {activeTab === 'editorial' && (
+                    <motion.div
+                      layoutId="activePipelineTabPill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg shadow-md -z-10"
+                    />
+                  )}
                 </button>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('social')}
+                  className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 z-10 ${
+                    activeTab === 'social' ? 'text-black' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Share2 size={13} className="shrink-0" />
+                  <span>Social</span>
+                  {activeTab === 'social' && (
+                    <motion.div
+                      layoutId="activePipelineTabPill"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg shadow-md -z-10"
+                    />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Smooth Sliding Format Toggle Pill */}
-            <div className="relative flex items-center p-1 bg-black/70 rounded-xl border border-white/10 shrink-0">
-              <button
-                type="button"
-                onClick={() => setActiveTab('editorial')}
-                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 z-10 ${
-                  activeTab === 'editorial' ? 'text-black' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <FileText size={13} className="shrink-0" />
-                <span>Blog</span>
-                {activeTab === 'editorial' && (
-                  <motion.div
-                    layoutId="activePipelineTabPill"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                    className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg shadow-md -z-10"
-                  />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('social')}
-                className={`relative px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 z-10 ${
-                  activeTab === 'social' ? 'text-black' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <Share2 size={13} className="shrink-0" />
-                <span>Social</span>
-                {activeTab === 'social' && (
-                  <motion.div
-                    layoutId="activePipelineTabPill"
-                    transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                    className="absolute inset-0 bg-gradient-to-r from-amber-400 to-amber-500 rounded-lg shadow-md -z-10"
-                  />
-                )}
-              </button>
+            {/* Second Row: Centered Category Selection with Sliding Motion Pill */}
+            <div className="flex items-center justify-center gap-1.5 p-1 bg-black/60 rounded-2xl border border-white/5 max-w-fit mx-auto relative">
+              {PIPELINE_SAMPLES.map((sample, idx) => {
+                const isSelected = selectedSampleIndex === idx;
+                return (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    onClick={() => setSelectedSampleIndex(idx)}
+                    className={`relative px-3 sm:px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 z-10 ${
+                      isSelected
+                        ? 'text-white'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? 'bg-rose-400' : idx === 1 ? 'bg-cyan-400' : 'bg-emerald-400'}`} />
+                    <span>{sample.category}</span>
+                    {isSelected && (
+                      <motion.div
+                        layoutId="activeCategorySamplePill"
+                        transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                        className="absolute inset-0 bg-white/15 border border-white/20 rounded-xl shadow-sm -z-10"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -532,7 +546,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             Ready to Supercharge Your Editorial Workflow?
           </h2>
           <p className="text-sm sm:text-base font-medium max-w-xl mx-auto text-black/80 leading-relaxed">
-            Create your account in 30 seconds. Get 10 verified daily generations with zero setup required.
+            Create your account in 30 seconds. Get 6 verified daily generations plus bonus TRB reward point unlocks with zero setup required.
           </p>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button

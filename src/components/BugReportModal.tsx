@@ -172,22 +172,23 @@ export default function BugReportModal({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          {/* Backdrop */}
+          {/* Backdrop (GPU-accelerated, no heavy backdrop-blur filter) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/65 will-change-[opacity]"
           />
 
-          {/* Modal Container */}
+          {/* Modal Container (GPU-accelerated, high frame rate) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 15 }}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 15 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-black/10 overflow-hidden my-8 z-10"
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-black/10 overflow-hidden my-8 z-10 will-change-transform transform-gpu"
           >
             {/* Header Banner */}
             <div className="bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white p-6 relative overflow-hidden">

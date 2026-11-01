@@ -1,69 +1,79 @@
-# Authentication Audit, Password Recovery, Legal Pages & Hub Watermark
+# Custom Multi-Platform Rewarded Ads & "TRB" Points Quota System (Revised)
 
-Audit and refine the user signup and authentication lifecycle, implement a fully working forgot/reset password flow, add accessible Privacy Policy and Terms of Service documents, and apply the brand watermark at the bottom of the application.
-
-## User Review & Critical Decisions
-
-> [!IMPORTANT]
-> The following items were requested for this final polish:
-> 1. **Sign Up Flow Audit**: Ensure validation (email format, minimum password length), helpful error messages, full name field for user profile personalization, and clean transition states.
-> 2. **Working Forgot Password Flow**: Full Supabase `resetPasswordForEmail` integration with redirect handling and a clean in-app modal/view to input the new password when returning from the reset link.
-> 3. **Privacy Policy & Terms and Conditions**: Accessible via modals from both the Auth sign-up screen and the footer of the app, outlining Nigerian journalism compliance, data privacy, and usage limits.
-> 4. **Brand Watermark**: Embedded at the bottom of the app page: `With ❤️ from Binuyo Legacy Hub`.
+A monetization and engagement architecture to incentivize rewarded video ads (AdMob / AdSense for Web, Unity Ads, AppLovin, or custom network tags), featuring branded **"TRB" Points** and reducing standard everyday free quotas from **10 to 6**, with dynamic warning color thresholds adapted to the earned TRB points.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Core Quota & TRB Rules (Updated)
 
-- **Sign Up Polish**: Allows users to register cleanly with Full Name, Email, and Password. Handles email confirmation scenarios gracefully, ensuring immediate clarity whether email verification is toggled on or off in Supabase.
-- **Forgot Password**: Provides an in-auth switch to "Forgot Password?". Users submit their email, receive the recovery link via Supabase Auth, and can reset their password securely.
-- **Privacy & Terms**: Authoritative, clean modal dialogs explaining user data handling, non-retention of payment data, authentic source attribution, and fair usage quotas.
-- **Footer Watermark**: An elegant, subtle brand signature honoring the creator: `With ❤️ from Binuyo Legacy Hub`, styled with high typographic restraint.
+```
+                    [ Everyday Free Quota: 6 Generations ]
+                                       │
+                    Used < 6 Generations Today?
+                      ├── YES ──► Normal Generation (Watching ads disabled)
+                      └── NO  ──► Free Quotas Exhausted (Locked)
+                                       │
+                      ┌────────────────┴────────────────┐
+                      ▼                                 ▼
+             [ Option A: Wait ]             [ Option B: Watch Rewarded Ad ]
+         Auto-resets at 12:00 AM WAT          • 15s, 30s, or 60s video ad
+                                              • Max: 10 ads/day
+                                              • Earn: +5 "TRB" Points / Quotas
+                                              • Effective limit becomes: 6 + (Earned TRB)
+                                              • Instantly unlocks generation!
+```
+
+### Key Specifications:
+1. **Everyday Free Quota Reduced to 6**:
+   - `DAILY_LIMIT` changed from `10` to `6` generations per day.
+   - Resets automatically at 12:00 AM West Africa Time (WAT / Africa:Lagos).
+2. **Access Gate**:
+   - Users **cannot** watch ads while they still have free daily quota remaining ($< 6$ used).
+   - Once all 6 generations are exhausted, the rewarded ad flow is unlocked.
+3. **Reward Structure**:
+   - Each completed ad view credits **+5 TRB Points** (equivalent to 5 additional editorial generations).
+   - Total effective limit for the day dynamically scales:
+     $$\text{Effective Limit} = 6 + \text{Earned TRB}$$
+4. **Daily Cap**:
+   - Maximum of **10 ads per day** (allowing dedicated users to earn up to +50 bonus generations, for a daily maximum of 56 generations).
+5. **Adaptive Color Warning Indicator**:
+   - The deduction color warnings adapt dynamically to the expanded `effectiveLimit`:
+     - **Normal (Green/Neutral)**: Used $< 70\%$ of current effective limit (e.g. 0–3 of 6, or 6–8 of 11).
+     - **Warning (Amber)**: Used $\ge 70\%$ of current effective limit (e.g. 4–5 of 6, or 9–10 of 11).
+     - **Locked / Exhausted (Rose/Red)**: Used $\ge \text{Effective Limit}$. Prompts the user to watch a rewarded ad to earn +5 TRB or wait until midnight.
+6. **Real-time Persistence**:
+   - Synchronized across local storage and Supabase user metadata so TRB points persist across devices and reloads.
 
 ---
 
-## 2. User Experience & Visual Design
+## 2. Multi-Platform Ad Support & Architecture
 
-### Auth Flow States
-```
-┌────────────────────────────────────────────────────────┐
-│                   Trends Box Portal                    │
-│                                                        │
-│   [ Sign In ]  |  [ Create Account ]  |  [ Forgot? ]   │
-│                                                        │
-│   • Full Name (during Sign Up)                         │
-│   • Email Address                                      │
-│   • Password (min 6 characters)                        │
-│                                                        │
-│   By continuing, you agree to our                      │
-│   [Terms of Service] and [Privacy Policy]              │
-│                                                        │
-│   [ Submit Action Button ]                             │
-└────────────────────────────────────────────────────────┘
-```
+We build an extensible, modular ad engine (`src/lib/adsConfig.ts` & `src/components/RewardedAdModal.tsx`):
 
-### Watermark Placement
-Rendered at the bottom of both the main generation dashboard and history view:
-```
-──────────────────────────────────────────────────────────
-Trends Box Nigeria · Real-time Verified Editorial Intelligence
-With ❤️ from Binuyo Legacy Hub
-```
+### Supported Ad Modes:
+- **Interactive Simulation Mode (Default)**:
+  - Realistic, sleek branded video ad player with timer countdown (15s, 30s, 60s), anti-skip protection, and sound toggle. Allows instant end-to-end testing of TRB unlocks without requiring pre-approved ad network keys.
+- **Google AdSense / AdMob for Web (Rewarded H5 Ads)**:
+  - Ready placement hooks using the standard Google Publisher Tag (`googletag`) rewarded slot pattern.
+- **Custom Network / VAST 3.0 / HTML5 Tags**:
+  - Modular config in `src/lib/adsConfig.ts` where you can paste your Publisher ID, Ad Unit ID, or VAST XML tag URL.
 
 ---
 
-## 3. Implementation Steps
+## 3. UI/UX & Component Upgrades
 
-1. **`src/components/LegalModals.tsx`**:
-   - Create comprehensive, professional `PrivacyPolicyModal` and `TermsModal` components with smooth spring animations, clean readable typography, and instant close buttons.
-2. **`src/components/Auth.tsx`**:
-   - Audit and upgrade Auth component with 3 distinct tabs/modes:
-     - `signin`: Email + Password + "Forgot Password?" button.
-     - `signup`: Full Name + Email + Password + Terms/Privacy agreement links.
-     - `forgot`: Email input + "Send Recovery Link" button with countdown and confirmation.
-   - Add inline links to open Privacy Policy and Terms of Service directly in the auth card.
-3. **Password Reset Detection (`src/App.tsx` & `src/components/ResetPasswordModal.tsx`)**:
-   - Detect Supabase `PASSWORD_RECOVERY` auth event or `#type=recovery` URL hash.
-   - Present a prompt modal to set a new password via `supabase.auth.updateUser({ password })`.
-4. **Watermark & Legal Links in Main App**:
-   - Add footer watermark (`With ❤️ from Binuyo Legacy Hub`) and quick links to Privacy Policy and Terms of Service at the bottom of `App.tsx` and in the sidebar.
+1. **`src/lib/quota.ts`**:
+   - Update `DAILY_LIMIT = 6`.
+   - Add TRB methods: `getTrbBonusQuota()`, `addTrbReward()`, `getTrbAdsWatchedToday()`, `canWatchRewardedAd()`, and `getEffectiveLimit()`.
+2. **`src/lib/adsConfig.ts`**:
+   - Multi-platform ad adapter and configuration slots with documentation comments.
+3. **`src/components/RewardedAdModal.tsx`**:
+   - 3D-styled, hardware-accelerated video ad player modal with live countdown, anti-skip verification, and celebration view when 5 TRB points are added.
+4. **`src/components/DailyLimitModal.tsx`**:
+   - Displays new 6-quota baseline.
+   - When quota is reached, provides the prominent **"Watch Ad & Earn +5 TRB"** button with live remaining ad slots (`X / 10 watched today`), alongside the midnight WAT countdown.
+5. **`src/App.tsx` & `UsageBadge`**:
+   - Badges display the adapted ratio (e.g., `4/6` or `6/6 + 5 TRB`).
+   - Warning colors automatically shift dynamically based on $\ge 70\%$ of the dynamic effective limit.
+6. **Landing Page & Modals**:
+   - Synchronize copy from "10 daily generations" to "6 daily generations + earn bonus TRB points".
