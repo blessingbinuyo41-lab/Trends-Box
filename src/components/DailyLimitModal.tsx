@@ -190,7 +190,7 @@ export default function DailyLimitModal({
               {onWatchAd && (
                 <div 
                   className={`p-4 rounded-2xl border space-y-3 ${
-                    isExhausted
+                    isExhausted || adsWatchedToday > 0
                       ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-400/40'
                       : 'bg-neutral-50 border-neutral-200/80'
                   }`}
@@ -199,7 +199,7 @@ export default function DailyLimitModal({
                     <div className="flex items-center gap-2.5">
                       <div 
                         className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
-                          isExhausted ? 'bg-amber-400 text-black' : 'bg-neutral-200 text-neutral-600'
+                          isExhausted || adsWatchedToday > 0 ? 'bg-amber-400 text-black' : 'bg-neutral-200 text-neutral-600'
                         }`}
                       >
                         <Award size={16} />
@@ -214,13 +214,45 @@ export default function DailyLimitModal({
                         <p className="text-[10px] text-neutral-500">
                           {adsWatchedToday < MAX_TRB_ADS_PER_DAY
                             ? `${MAX_TRB_ADS_PER_DAY - adsWatchedToday} ad rewards available today`
-                            : 'Daily 10/10 ad reward limit reached'}
+                            : "Daily 10/10 ad reward limit reached"}
                         </p>
                       </div>
                     </div>
+
+                    {adsWatchedToday > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono font-bold">
+                        {adsWatchedToday}/{MAX_TRB_ADS_PER_DAY} Watched
+                      </span>
+                    )}
                   </div>
 
-                  {isExhausted ? (
+                  {adsWatchedToday >= MAX_TRB_ADS_PER_DAY ? (
+                    /* Case 1: Max Ads Reached for Today (10/10) */
+                    <div className="p-3 rounded-xl bg-neutral-100/90 border border-neutral-200 text-[11px] text-neutral-600 text-center space-y-1">
+                      <div className="font-bold text-neutral-900">You've reached your ads limit for today</div>
+                      <div className="text-[10px] text-neutral-500">Come back tomorrow at 12:00 AM WAT when both generations and ad limits reset.</div>
+                    </div>
+                  ) : adsWatchedToday > 0 ? (
+                    /* Case 2: User has already unlocked ads and has watched 1-9 ads */
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-neutral-600 px-0.5">
+                        <span>You've watched <strong className="text-neutral-900">{adsWatchedToday} of {MAX_TRB_ADS_PER_DAY}</strong> ads today</span>
+                        <span className="text-emerald-600 font-bold font-mono">+{adsWatchedToday * 5} TRB earned</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onWatchAd();
+                        }}
+                        className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-black font-extrabold text-xs rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Play size={13} className="fill-black" />
+                        <span>Watch More &amp; Earn +5 TRB</span>
+                      </button>
+                    </div>
+                  ) : isExhausted ? (
+                    /* Case 3: Initial 6 quota exhausted, 0 ads watched yet */
                     canWatchAd ? (
                       <button
                         type="button"
@@ -239,6 +271,7 @@ export default function DailyLimitModal({
                       </div>
                     )
                   ) : (
+                    /* Case 4: Free quota still active (<6 used), 0 ads watched */
                     <div className="p-2.5 rounded-xl bg-white border border-neutral-200/60 text-[11px] text-neutral-500 flex items-center gap-2 leading-relaxed">
                       <span className="text-amber-500 shrink-0 font-bold">ℹ️</span>
                       <span>Watch-to-earn activates automatically once your {DAILY_LIMIT} free daily generations are used.</span>

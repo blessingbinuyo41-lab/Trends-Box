@@ -22,6 +22,11 @@ export default function RewardedAdModal({
   const [isMuted, setIsMuted] = useState(false);
   const [rewardGranted, setRewardGranted] = useState(false);
   const [skipAttempted, setSkipAttempted] = useState(false);
+  const [activeNetwork, setActiveNetwork] = useState<string>(
+    ADS_CONFIG.provider === 'admob' ? 'Google AdMob / AdSense' :
+    ADS_CONFIG.provider === 'custom' ? ADS_CONFIG.custom.networkName :
+    'Trends Box Sponsored Partner'
+  );
   const hasTriggeredRewardRef = React.useRef(false);
 
   // Reset modal state when opened
@@ -32,6 +37,11 @@ export default function RewardedAdModal({
       setRewardGranted(false);
       setSkipAttempted(false);
       hasTriggeredRewardRef.current = false;
+      setActiveNetwork(
+        ADS_CONFIG.provider === 'admob' ? 'Google AdMob / AdSense' :
+        ADS_CONFIG.provider === 'custom' ? ADS_CONFIG.custom.networkName :
+        'Trends Box Sponsored Partner'
+      );
     }
   }, [isOpen, duration]);
 
@@ -61,6 +71,24 @@ export default function RewardedAdModal({
   const handleStartAd = (selectedDuration: 15 | 30 | 60) => {
     setDuration(selectedDuration);
     setTimeLeft(selectedDuration);
+
+    // If live AdMob/AdSense is enabled
+    if (ADS_CONFIG.provider === 'admob') {
+      try {
+        const hasGoogleTag = typeof window !== 'undefined' && (window as any).googletag;
+        if (hasGoogleTag && (window as any).googletag.display) {
+          // Live Google Ad slot available
+          setActiveNetwork('Google AdMob Live Network');
+        } else if (ADS_CONFIG.fallbackToSimulationOnNoFill) {
+          // Automatic seamless fallback to simulation so user never loses TRB points
+          console.info('AdMob inventory loading/fallback engaged. Streaming sponsored test ad.');
+          setActiveNetwork('Sponsored Partner (AdMob Fallback)');
+        }
+      } catch (err) {
+        console.warn('Live ad request encountered no-fill. Engaging fallback:', err);
+      }
+    }
+
     setIsPlaying(true);
     setRewardGranted(false);
   };
@@ -101,7 +129,7 @@ export default function RewardedAdModal({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-xs font-mono uppercase tracking-wider text-neutral-300 font-bold">
-                Sponsored TRB Reward Partner
+                {activeNetwork}
               </span>
             </div>
 

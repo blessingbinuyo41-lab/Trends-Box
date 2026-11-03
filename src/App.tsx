@@ -954,10 +954,14 @@ export default function App() {
                       </div>
                       <div>
                         <div className="font-bold text-rose-950 text-xs sm:text-sm">
-                          Daily Generation Quota Reached ({usageCount}/{DAILY_LIMIT + trbBonus})
+                          {trbAdsWatched >= MAX_TRB_ADS_PER_DAY
+                            ? `Daily Quotas & Ad Limit Exhausted (${usageCount}/${DAILY_LIMIT + trbBonus})`
+                            : `Daily Quota Reached (${usageCount}/${DAILY_LIMIT + trbBonus})`}
                         </div>
                         <div className="text-rose-700/80 text-[11px] leading-relaxed">
-                          Watch a short rewarded ad to unlock +5 TRB points or wait for midnight reset.
+                          {trbAdsWatched >= MAX_TRB_ADS_PER_DAY
+                            ? "You have completed all 10 rewarded ads today. Generations will unlock tonight at 12:00 AM WAT."
+                            : "Watch a short rewarded ad to unlock +5 TRB points or wait for midnight reset."}
                         </div>
                       </div>
                     </div>
@@ -966,7 +970,7 @@ export default function App() {
                       onClick={() => setIsLimitModalOpen(true)}
                       className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl text-xs shrink-0 transition-all shadow-xs cursor-pointer text-center"
                     >
-                      Unlock Quotas
+                      {trbAdsWatched >= MAX_TRB_ADS_PER_DAY ? "View Reset Time" : "Unlock Quotas"}
                     </button>
                   </motion.div>
                 )}
@@ -994,7 +998,11 @@ export default function App() {
                   ) : usageCount >= (DAILY_LIMIT + trbBonus) ? (
                     <>
                       <Lock size={18} className="text-rose-400" />
-                      <span>Daily Limit Reached ({usageCount}/{DAILY_LIMIT + trbBonus}) • Locked</span>
+                      <span>
+                        {trbAdsWatched >= MAX_TRB_ADS_PER_DAY
+                          ? `All Quotas & Ads Exhausted (${usageCount}/${DAILY_LIMIT + trbBonus}) • Locked`
+                          : `Daily Limit Reached (${usageCount}/${DAILY_LIMIT + trbBonus}) • Locked`}
+                      </span>
                     </>
                   ) : (
                     <>
