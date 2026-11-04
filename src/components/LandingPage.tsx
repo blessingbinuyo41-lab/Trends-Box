@@ -158,7 +158,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
                 <span className="font-extrabold text-sm sm:text-lg tracking-tight text-white whitespace-nowrap">
                   Trends Box
                 </span>
-                <span className="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-400 text-black shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white border border-emerald-500/40 shadow-xs shrink-0">
                   NG
                 </span>
               </div>
