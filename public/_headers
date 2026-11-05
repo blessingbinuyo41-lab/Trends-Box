@@ -1,0 +1,22 @@
+# Netlify & Cloudflare Cache Invalidation Rules for Trends Box
+
+# 1. HTML entry files - NEVER cache (forces browser to fetch latest JS bundle on new deployment)
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# 2. Service Worker - NEVER cache (ensures browser always checks for SW updates)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# 3. Hashed assets - Cache forever (Vite generates unique hash on every build)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
