@@ -63,7 +63,7 @@ export function PrivacyPolicyModal({ isOpen, onClose }: LegalModalProps) {
               <h4 className="text-sm font-bold text-neutral-900">2. Information We Collect</h4>
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong>Account Credentials:</strong> Your name and email address when creating an account or resetting your password.</li>
-                <li><strong>Generation Records:</strong> Titles, excerpts, and editorial blogs or social card content generated during your sessions, stored in your private history.</li>
+                <li><strong>Generation Records:</strong> Titles, excerpts, and editorial blogs or social card content generated during your sessions, stored in your private history (up to 10 generations retained; excess records older than 24 hours are automatically purged for database optimization).</li>
                 <li><strong>Quota &amp; Reward Points (TRB):</strong> Daily usage counts and verified completed ad interaction records used to calculate earned TRB bonus quotas.</li>
                 <li><strong>Technical Diagnostics:</strong> Browser environment, screen dimensions, and Nigerian time (WAT) sent solely when filing bug reports or calculating daily quotas.</li>
               </ul>
@@ -181,7 +181,7 @@ export function TermsModal({ isOpen, onClose }: LegalModalProps) {
             <div className="space-y-1.5">
               <h4 className="text-sm font-bold text-neutral-900">2. Editorial &amp; Source Attribution</h4>
               <p>
-                Trends Box synthesizes live verified public news reports from premier Nigerian outlets (including The Punch, Vanguard, Premium Times, TheCable, and Daily Post). Generated editorial articles and social media cards reference original sources. Users are encouraged to verify critical facts against the linked source platforms before broad publication.
+                Trends Box synthesizes live verified public news reports from premier Nigerian outlets (including The Punch, Vanguard, Premium Times, Sahara Reporters, TheCable, and Daily Post). Generated editorial articles and social media cards reference original sources. Users are encouraged to verify critical facts against the linked source platforms before broad publication.
               </p>
             </div>
 

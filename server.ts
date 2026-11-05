@@ -194,6 +194,13 @@ async function startServer() {
             return segments.some(s => /^202\d$/.test(s)) && segments.length >= 3;
           }
 
+          // Sahara Reporters: /202X/MM/DD/... or /slug-with-hyphens
+          if (host.includes('saharareporters.com')) {
+            const hasDate = segments.some(s => /^202\d$/.test(s));
+            const hyphenCount = (lastSegment.match(/-/g) || []).length;
+            return hasDate || (hyphenCount >= 2 && lastSegment.length >= 12);
+          }
+
           // The Punch, TheCable, The Nation, Guardian NG, ThisDay, etc.
           const hyphenCount = (lastSegment.match(/-/g) || []).length;
           const hasArticleSlug = hyphenCount >= 2 && lastSegment.length >= 16;
@@ -230,7 +237,8 @@ async function startServer() {
             'thenationonlineng.net': { platform: 'The Nation', reliabilityScore: 96 },
             'thisdaylive.com': { platform: 'ThisDay', reliabilityScore: 96 },
             'businessday.ng': { platform: 'BusinessDay', reliabilityScore: 98 },
-            'independent.ng': { platform: 'Independent', reliabilityScore: 95 }
+            'independent.ng': { platform: 'Independent', reliabilityScore: 95 },
+            'saharareporters.com': { platform: 'Sahara Reporters', reliabilityScore: 97 }
           };
           for (const [d, meta] of Object.entries(outlets)) {
             if (host.includes(d)) return meta;
@@ -245,7 +253,7 @@ async function startServer() {
       // 1. Search latest breaking Nigerian news with topic: "news" and filter strictly for direct articles
       try {
         const searchQuery = prompt.toLowerCase().includes("find the latest news") || prompt.toLowerCase().includes("latest news")
-          ? `${currentCategory} breaking news published today ${currentDate} Nigeria Punch Vanguard Premium Times`
+          ? `${currentCategory} breaking news published today ${currentDate} Nigeria Punch Vanguard Premium Times Sahara Reporters`
           : `${prompt} latest news today ${currentDate} Nigeria`;
 
         const searchResult = await tvly.search(searchQuery, {
@@ -253,7 +261,7 @@ async function startServer() {
           searchDepth: "advanced",
           maxResults: 16,
           includeImages: true,
-          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "thenationonlineng.net", "thisdaylive.com"]
+          includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "thenationonlineng.net", "thisdaylive.com", "saharareporters.com"]
         });
 
         if (Array.isArray(searchResult.images) && searchResult.images.length > 0) {
@@ -268,11 +276,11 @@ async function startServer() {
         // If fewer than 3 direct articles, run a targeted fallback search specifically for articles
         if (directArticles.length < 3) {
           try {
-            const fallbackSearch = await tvly.search(`${currentCategory} Nigeria breaking news story today ${currentDate} Punch Vanguard TheCable`, {
+            const fallbackSearch = await tvly.search(`${currentCategory} Nigeria breaking news story today ${currentDate} Punch Vanguard TheCable Sahara Reporters`, {
               topic: "news",
               searchDepth: "advanced",
               maxResults: 10,
-              includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng"]
+              includeDomains: ["punchng.com", "vanguardngr.com", "dailypost.ng", "premiumtimesng.com", "guardian.ng", "thecable.ng", "saharareporters.com"]
             });
             const secondaryDirect = (fallbackSearch.results || []).filter(r => isDirectArticleUrl(r.url));
             const seenUrls = new Set(directArticles.map(a => cleanArticleUrl(a.url)));

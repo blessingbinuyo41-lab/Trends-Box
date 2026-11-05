@@ -54,17 +54,14 @@ export default function BugAntMascot({ onOpenReport }: BugAntMascotProps) {
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         aria-label="Report a bug or suggestion"
-        className="relative group p-0 bg-transparent border-none outline-none cursor-pointer active:scale-95 transition-transform duration-200 block"
+        className="relative group p-0 bg-transparent border-none outline-none cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-200 block"
       >
-        {/* Glow ambient circle */}
-        <div className="absolute inset-0 rounded-full bg-amber-400/20 blur-md group-hover:bg-amber-400/35 transition-colors" />
-
-        {/* Circular Avatar Container with Border and Shadow */}
-        <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100/90 border-2 border-amber-400/80 shadow-xl shadow-amber-950/20 flex items-center justify-center overflow-visible">
+        {/* Stand-alone Bug Ant with Transparent Background */}
+        <div className="relative w-14 h-14 sm:w-16 sm:h-16 bg-transparent flex items-center justify-center overflow-visible">
           {/* Fully Visible Colorful Bug Ant Illustration */}
           <svg
             viewBox="0 0 100 100"
-            className="w-12 h-12 sm:w-14 sm:h-14 overflow-visible"
+            className="w-14 h-14 sm:w-16 sm:h-16 overflow-visible drop-shadow-sm group-hover:drop-shadow-md transition-all duration-200"
           >
             {/* Soft Shadow */}
             <ellipse cx="50" cy="85" rx="24" ry="5" fill="#000000" opacity="0.25" />

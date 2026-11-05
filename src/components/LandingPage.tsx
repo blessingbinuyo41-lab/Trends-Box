@@ -222,7 +222,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
           transition={{ delay: 0.2 }}
           className="mt-6 text-sm sm:text-lg text-neutral-400 max-w-2xl mx-auto leading-relaxed"
         >
-          Stop writing from rumors. Trends Box verifies breaking reports directly from Punch, Vanguard, Premium Times &amp; TheCable, crafting comprehensive blogs, viral social summaries, and contextual covers in seconds.
+          Stop writing from rumors. Trends Box verifies breaking reports directly from Punch, Vanguard, Premium Times, Sahara Reporters &amp; TheCable, crafting comprehensive blogs, viral social summaries, and contextual covers in seconds.
         </motion.p>
 
         {/* 3D Loop Animated AI Agent Engine Illustration (Performance Optimized) */}
@@ -477,7 +477,7 @@ export default function LandingPage({ onGetStarted, onSignIn }: LandingPageProps
             </div>
             <h3 className="text-lg font-bold text-white">Direct Verified Outlets</h3>
             <p className="text-xs text-neutral-400 leading-relaxed">
-              Strictly routes to authentic article URLs from The Punch, Vanguard, Premium Times, Daily Post, and TheCable, completely bypassing homepages and ad-walls.
+              Strictly routes to authentic article URLs from The Punch, Vanguard, Premium Times, Sahara Reporters, Daily Post, and TheCable, completely bypassing homepages and ad-walls.
             </p>
           </div>
 

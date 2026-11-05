@@ -11,7 +11,7 @@ export const RELIABILITY_SCORES: ReliabilityScore[] = [
   { name: 'Guardian Nigeria', score: 90, description: 'Intellectual depth and high editorial quality.' },
   { name: 'Arise News', score: 91, description: 'Global perspective on Nigerian news.' },
   { name: 'Vanguard', score: 85, description: 'Popular news source with broad coverage.' },
-  { name: 'Sahara Reporters', score: 80, description: 'Aggressive reporting, occasionally controversial.' },
+  { name: 'Sahara Reporters', score: 92, description: 'Investigative journalism and fast-breaking grassroots reporting.' },
   { name: 'BellaNaija', score: 85, description: 'Top-tier entertainment and lifestyle coverage.' }
 ];
 

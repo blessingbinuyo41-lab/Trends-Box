@@ -66,6 +66,10 @@ export const AgentEngineIllustration = memo(function AgentEngineIllustration() {
                 <span className="text-emerald-400">99% Rel.</span>
               </div>
               <div className="flex items-center justify-between">
+                <span>Sahara Reporters</span>
+                <span className="text-emerald-400">97% Rel.</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span>TheCable / DailyPost</span>
                 <span className="text-emerald-400">97% Rel.</span>
               </div>

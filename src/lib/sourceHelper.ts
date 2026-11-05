@@ -25,6 +25,7 @@ const OUTLET_PLATFORMS: Record<string, { name: string; score: number }> = {
   'tribuneonlineng.com': { name: 'Nigerian Tribune', score: 95 },
   'channelstv.com': { name: 'Channels TV', score: 98 },
   'arise.tv': { name: 'Arise News', score: 97 },
+  'saharareporters.com': { name: 'Sahara Reporters', score: 97 },
 };
 
 /**
@@ -116,6 +117,13 @@ export function isDirectArticleUrl(urlStr: string): boolean {
     if (host.includes('dailypost.ng')) {
       const hasYear = segments.some(s => /^202\d$/.test(s));
       return hasYear && segments.length >= 3;
+    }
+
+    // Sahara Reporters: /202X/MM/DD/... or standard article slug
+    if (host.includes('saharareporters.com')) {
+      const hasDate = segments.some(s => /^202\d$/.test(s));
+      const hyphenCount = (lastSegment.match(/-/g) || []).length;
+      return hasDate || (hyphenCount >= 2 && lastSegment.length >= 12);
     }
 
     // The Punch, TheCable, The Nation, Guardian NG, ThisDay, etc.

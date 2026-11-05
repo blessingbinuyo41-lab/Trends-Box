@@ -36,6 +36,7 @@ import {
   syncTrbWithServer
 } from './lib/quota';
 import { checkTopicDuplicate, DuplicateCheckResult, fetchRecentPlatformArticles } from './lib/duplicateService';
+import { pruneStaleHistory, RETENTION_MAX_ITEMS } from './lib/historyService';
 
 // Safe access to process.env for production builds
 
@@ -160,7 +161,7 @@ export default function App() {
   const [trbBonus, setTrbBonus] = useState(0);
   const [trbAdsWatched, setTrbAdsWatched] = useState(0);
 
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 8;
   useEffect(() => {
     // Check if user came from a password recovery email link (#type=recovery)
     if (window.location.hash.includes('type=recovery')) {
@@ -285,6 +286,9 @@ export default function App() {
   const fetchHistory = async () => {
     if (!user) return;
     try {
+      // Auto-prune stale generations (>10 items and >24 hours old) for database optimization
+      await pruneStaleHistory(user.id);
+
       const { data, error } = await supabase
         .from('history')
         .select('*')
@@ -302,6 +306,8 @@ export default function App() {
       setHistoryPage(1); // Reset pagination when fetching new history
     } catch (err) {
       console.error('Supabase history fetch failed', err);
+      // Prune local history fallback as well
+      await pruneStaleHistory(undefined);
       const localHistory = JSON.parse(localStorage.getItem('trendsbox_history') || '[]');
       setHistory(localHistory);
       setHistoryPage(1);
@@ -469,6 +475,9 @@ export default function App() {
       // Update local state
       setHistory(prev => [uiRecord, ...prev]);
 
+      // Automatically prune stale generations (>10 items and >24h old) in background
+      pruneStaleHistory(user?.id);
+
       // Safely increment daily usage anchored to 12:00 AM Nigeria local time
       const nextUsage = await incrementUsageCount(user?.id);
       setUsageCount(nextUsage);
@@ -536,6 +545,9 @@ export default function App() {
 
     setHistory(prev => [newSocialItem, ...prev]);
     setSelectedHistoryItem(newSocialItem);
+
+    // Automatically prune stale generations in background
+    pruneStaleHistory(user?.id);
   };
 
   if (authLoading) {
@@ -1069,9 +1081,16 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">Generation History</h2>
-                    <p className="text-sm md:text-base text-black/50">View and manage your previous generations.</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h2 className="text-xl md:text-2xl font-bold tracking-tight">Generation History</h2>
+                      <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 px-2.5 py-1 rounded-full border border-neutral-200">
+                        {history.length} {history.length === 1 ? 'generation' : 'generations'} stored
+                      </span>
+                    </div>
+                    <p className="text-xs md:text-sm text-black/50">
+                      View and manage your previous generations. Up to 10 generations are retained; excess records older than 24 hours are automatically cleaned up to keep the database fast.
+                    </p>
                   </div>
 
                   {displayedHistory.length === 0 ? (
@@ -1137,12 +1156,16 @@ export default function App() {
                       ))}
 
                       {hasMoreHistory && (
-                        <button
-                          onClick={loadMoreHistory}
-                          className="w-full p-3 text-center text-sm font-medium text-black/40 hover:text-black hover:bg-black/5 rounded-xl transition-all border border-dashed border-black/10 hover:border-black/20"
-                        >
-                          Load More ({history.length - displayedHistory.length} remaining)
-                        </button>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={loadMoreHistory}
+                            className="w-full py-3.5 px-4 text-center text-xs sm:text-sm font-bold text-neutral-800 hover:text-black bg-neutral-100 hover:bg-neutral-200/80 active:scale-[0.99] rounded-2xl transition-all border border-black/5 hover:border-black/10 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <span>Load More ({history.length - displayedHistory.length} remaining)</span>
+                            <ChevronDown size={16} className="text-neutral-500" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
